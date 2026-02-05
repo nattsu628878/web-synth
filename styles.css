@@ -1,0 +1,1115 @@
+/* ============================================
+   Web Synth - Ableton風ラックスタイル
+   tpl/tool-box-tpl.html をベースにしたスタイル
+   ============================================ */
+
+/* ---------- テンプレート: CSS変数 ---------- */
+:root {
+  --accent: #628878;
+  --accent-hover: #4a6b5a;
+  --accent-dark: #4d6b5f;
+  --accent-light: #e8f0ec;
+  --accent-bg: rgba(98, 136, 120, 0.15);
+  --bg-primary: #ffffff;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #f0f0f0;
+  --bg-panel: #ffffff;
+  --border-color: #d1d5db;
+  --border-light: #e5e7eb;
+  --text-primary: #333;
+  --text-secondary: #4b5563;
+  --text-muted: #6b7280;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --color-source: #628878;
+  --color-effect: #4271ae;
+  --color-modulator: #8959a8;
+}
+html.dark-mode {
+  --accent: #628878;
+  --accent-hover: #7aa08a;
+  --accent-light: #2a3d32;
+  --accent-dark: #628878;
+  --accent-bg: rgba(98, 136, 120, 0.2);
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #252525;
+  --bg-tertiary: #2d2d2d;
+  --bg-panel: #2a2a2a;
+  --border-color: #404040;
+  --border-light: #353535;
+  --text-primary: #f0f0f0;
+  --text-secondary: #b0b0b0;
+  --text-muted: #888888;
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --color-source: #7aa08a;
+  --color-effect: #6b9bd1;
+  --color-modulator: #a87cc0;
+}
+
+/* ---------- テンプレート: 基本要素 ---------- */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  user-select: none;
+}
+.container { max-width: 1200px; margin: 0 auto; padding: 1rem; }
+p { line-height: 1.7; color: var(--text-secondary); margin: 0.5em 0; }
+
+/* ---------- テンプレート: ヘッダー ---------- */
+.header {
+  background: var(--bg-secondary);
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.header-content {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+}
+.header h1 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-btn {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.header-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-light);
+  color: var(--accent);
+}
+
+.header-btn--file {
+  margin: 0;
+  cursor: pointer;
+}
+
+.header-btn--file input {
+  display: none;
+}
+
+.theme-toggle {
+  padding: 0.25rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9em;
+  color: var(--text-primary);
+  transition: all 0.2s;
+}
+
+.theme-toggle:hover {
+  background-color: var(--bg-secondary);
+  transform: scale(1.1);
+}
+
+.theme-toggle .theme-icon { display: block; line-height: 1; }
+.theme-toggle .theme-toggle-text { display: none; }
+
+/* ---------- テンプレート: 説明セクション ---------- */
+.info-section {
+  background: var(--accent-bg);
+  border-left: 4px solid var(--accent);
+  padding: 1.25rem;
+  margin: 1rem 0;
+  border-radius: 8px;
+}
+.info-section p { margin: 0.75em 0; color: var(--text-primary); }
+
+/* ---------- モジュールピッカー（ラック上） ---------- */
+.synth-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.5rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+}
+
+.synth-picker__group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.synth-picker__group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.synth-picker__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 7rem;
+}
+
+.synth-picker__row-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+}
+
+.synth-picker__row-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-picker__row-select {
+  padding: 0.2rem 0.4rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  min-width: 4rem;
+}
+
+.synth-picker__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.synth-picker__item {
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.synth-picker__item:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
+.synth-picker__item:active {
+  transform: scale(0.98);
+}
+
+.synth-picker__item--source { border-color: var(--color-source); color: var(--color-source); }
+.synth-picker__item--source:hover { background: rgba(98, 136, 120, 0.12); }
+.synth-picker__item--effect { border-color: var(--color-effect); color: var(--color-effect); }
+.synth-picker__item--effect:hover { background: rgba(66, 113, 174, 0.12); }
+.synth-picker__item--modulator { border-color: var(--color-modulator); color: var(--color-modulator); }
+.synth-picker__item--modulator:hover { background: rgba(160, 100, 160, 0.12); }
+
+/* ---------- ラックエリア（ラック＋右側マスター） ---------- */
+.synth-rack-area {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+}
+
+/* 信号フロー用: 矢印パターン（SVG data URL） */
+.synth-rack {
+  flex: 1;
+  min-height: 120px;
+  min-width: 0;
+  padding: 0.75rem;
+  position: relative;
+  background: var(--bg-tertiary);
+  background-image:
+    linear-gradient(105deg, transparent 0%, transparent 40%, rgba(98, 136, 120, 0.04) 50%, transparent 60%, transparent 100%),
+    linear-gradient(to right, rgba(98, 136, 120, 0.03) 0%, transparent 20%, rgba(66, 113, 174, 0.04) 50%, rgba(137, 89, 168, 0.03) 85%, transparent 100%);
+  background-size: 200% 100%, 100% 100%;
+  background-repeat: repeat-y, no-repeat;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.5rem;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+html.dark-mode .synth-rack {
+  background-image:
+    linear-gradient(105deg, transparent 0%, transparent 40%, rgba(122, 160, 138, 0.06) 50%, transparent 60%, transparent 100%),
+    linear-gradient(to right, rgba(122, 160, 138, 0.05) 0%, transparent 20%, rgba(107, 155, 209, 0.06) 50%, rgba(168, 124, 192, 0.05) 85%, transparent 100%);
+}
+
+.synth-rack__row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  min-height: 0;
+  flex-wrap: nowrap;
+  min-width: max-content;
+  position: relative;
+  border-bottom: 1px solid var(--border-light);
+}
+.synth-rack__row:last-child {
+  border-bottom: none;
+}
+
+.synth-rack__col {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+
+.synth-rack__col--name {
+  flex-shrink: 0;
+  width: 2.25rem;
+  display: flex;
+  align-items: center;
+}
+
+.synth-rack__row-name {
+  width: 100%;
+  padding: 0.12rem 0.2rem;
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  border: none;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text-muted);
+  box-sizing: border-box;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.synth-rack__row-name:hover {
+  color: var(--text-secondary);
+}
+
+.synth-rack__row-name:focus {
+  outline: none;
+  color: var(--text-primary);
+  border-bottom-color: var(--accent);
+}
+
+.synth-rack__row-name::placeholder {
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.synth-rack__col--pan {
+  flex-shrink: 0;
+  width: 3rem;
+  display: flex;
+  align-items: center;
+  padding: 0 0.15rem;
+}
+
+.synth-rack__slot--pan {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.synth-rack__slot--pan .synth-rack__pan {
+  flex: 1;
+  min-width: 0;
+}
+
+.synth-rack__pan-jack {
+  flex-shrink: 0;
+}
+
+.synth-rack__pan {
+  width: 100%;
+  height: 0.5rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.synth-rack__col--source {
+  flex-shrink: 0;
+  position: relative;
+  background: linear-gradient(to right, rgba(98, 136, 120, 0.08) 0%, transparent 100%);
+  border-radius: 6px;
+  padding-right: 0.25rem;
+}
+.synth-rack__col--source::after {
+  content: "→";
+  position: absolute;
+  right: -0.15rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.75rem;
+  color: var(--color-source);
+  opacity: 0.5;
+  pointer-events: none;
+}
+html.dark-mode .synth-rack__col--source {
+  background: linear-gradient(to right, rgba(122, 160, 138, 0.12) 0%, transparent 100%);
+}
+
+.synth-rack__col--chain {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+  min-width: 0;
+  position: relative;
+  background: linear-gradient(to right, rgba(66, 113, 174, 0.05) 0%, rgba(137, 89, 168, 0.04) 100%);
+  border-radius: 6px;
+  padding-left: 0.1rem;
+  padding-right: 1.25rem;
+}
+.synth-rack__col--chain::before {
+  content: "+";
+  position: absolute;
+  left: 0.35rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.6rem;
+  color: var(--color-effect);
+  opacity: 0.45;
+  pointer-events: none;
+}
+.synth-rack__col--chain::after {
+  content: "→";
+  position: absolute;
+  right: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.65rem;
+  color: var(--color-effect);
+  opacity: 0.4;
+  pointer-events: none;
+}
+html.dark-mode .synth-rack__col--chain {
+  background: linear-gradient(to right, rgba(107, 155, 209, 0.08) 0%, rgba(168, 124, 192, 0.06) 100%);
+}
+
+.synth-rack__slot {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow 0.15s, opacity 0.15s;
+  position: relative;
+  overflow: visible;
+}
+/* スロット間の矢印（信号の流れ） */
+.synth-rack__slot:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  right: -0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.synth-rack__slot-handle {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 6px 6px 0 0;
+  cursor: grab;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.1em;
+}
+
+.synth-rack__slot-handle:active {
+  cursor: grabbing;
+}
+
+.synth-rack__slot--dragging {
+  opacity: 0.6;
+}
+
+.synth-rack__slot--drag-over {
+  box-shadow: 0 0 0 2px var(--accent);
+  border-radius: 8px;
+}
+
+/* スロット内のモジュール本体（ハンドルの下） */
+.synth-rack__slot .synth-module {
+  border-radius: 0 0 8px 8px;
+}
+
+/* ---------- ラック右パネル：全体音量・レベル・出力波形（ラックと同じ高さ） ---------- */
+.synth-master-panel {
+  flex-shrink: 0;
+  width: 120px;
+  padding: 0.75rem;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-self: stretch;
+}
+
+.synth-master-volume {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.synth-master-volume__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-volume__slider {
+  width: 100%;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.synth-master-volume__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.synth-master-volume__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.synth-master-volume__value {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.synth-master-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.synth-master-meter__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-meter__digital {
+  min-height: 40px;
+  padding: 0.25rem 0.35rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  display: flex;
+  align-items: stretch;
+  gap: 0.35rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.synth-master-meter__segments {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  flex-shrink: 0;
+  width: 10px;
+  min-height: 28px;
+}
+
+.synth-master-meter__segment {
+  flex: 1;
+  min-height: 2px;
+  background: var(--border-light);
+  border-radius: 1px;
+  transition: background 0.05s ease-out;
+}
+
+.synth-master-meter__segment--on {
+  background: var(--accent);
+}
+
+.synth-master-meter__value {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* 出力波形窓（モジュールの波形ビジュアライズと同じ高さ） */
+.synth-master-waveform {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.synth-master-waveform__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-waveform__wrap {
+  height: 28px;
+  min-height: 28px;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.synth-master-waveform__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+}
+
+/* スペクトラムアナライザ（幅は Wave 窓と同じ・正方形） */
+.synth-master-spectrum {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.synth-master-spectrum__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-spectrum__wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.synth-master-spectrum__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+}
+
+/* スペクトログラム（時間 vs 周波数、右が最新・幅は Wave と同じ・正方形） */
+.synth-master-spectrogram {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.synth-master-spectrogram__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-spectrogram__wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.synth-master-spectrogram__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+}
+
+/* ゴニオメーター（L/R 位相・ステレオ幅、幅は Wave と同じ・正方形） */
+.synth-master-goniometer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.synth-master-goniometer__label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.synth-master-goniometer__wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.synth-master-goniometer__canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+}
+
+/* ---------- 各モジュールの見た目（細かいUIはモジュール側で上書き可能） ---------- */
+.synth-module {
+  width: 160px;
+  min-height: 100px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--shadow-sm);
+}
+
+.synth-module__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.synth-module--source { border-left: 3px solid var(--color-source); }
+.synth-module--source .synth-module__header { border-left: 3px solid var(--color-source); margin-left: -3px; padding-left: calc(0.5rem + 3px); }
+.synth-module--wavetable { min-height: 220px; }
+.synth-module--effect { border-left: 3px solid var(--color-effect); }
+.synth-module--effect .synth-module__header { border-left: 3px solid var(--color-effect); margin-left: -3px; padding-left: calc(0.5rem + 3px); }
+.synth-module--modulator { border-left: 3px solid var(--color-modulator); }
+.synth-module--modulator .synth-module__header { border-left: 3px solid var(--color-modulator); margin-left: -3px; padding-left: calc(0.5rem + 3px); }
+
+.synth-module__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.synth-module__remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.synth-module__remove:hover {
+  color: var(--text-primary);
+  background: var(--bg-tertiary);
+}
+
+.synth-module__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/* 波形ビジュアライズ（全モジュール共通） */
+.synth-module__waveform-viz {
+  flex-shrink: 0;
+  width: 100%;
+  height: 28px;
+  margin-bottom: 0.35rem;
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.synth-module__waveform-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  vertical-align: middle;
+}
+
+.synth-module__placeholder {
+  font-style: italic;
+}
+
+/* サンプルモジュール専用の余白（後から画像・UIを足しやすい） */
+.synth-module--sample .synth-module__body {
+  min-height: 60px;
+  justify-content: center;
+}
+
+.synth-module--sample .synth-module__waveform-viz {
+  margin-bottom: 0.5rem;
+}
+
+/* ---------- 音源モジュール用コントロール（スライダー・セレクト） ---------- */
+.synth-module__body--controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0.5rem;
+}
+
+.synth-module__row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.synth-module__label {
+  flex-shrink: 0;
+  width: 4.5em;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}
+
+.synth-module__slider {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.synth-module__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.synth-module__slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+.synth-module__value {
+  flex-shrink: 0;
+  min-width: 3.5em;
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.synth-module__select {
+  flex: 1;
+  min-width: 4em;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  cursor: pointer;
+  appearance: auto;
+  -webkit-appearance: menulist;
+}
+
+.synth-module__trigger {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  cursor: pointer;
+  width: 100%;
+}
+
+.synth-module__trigger:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+/* ---------- シーケンサ専用（8ステップ常表示・縦ピッチ・シンプルゲート） ---------- */
+.synth-module--sequencer {
+  width: 280px;
+  min-width: 280px;
+}
+
+.synth-module--sequencer .synth-module__body {
+  overflow: visible;
+  min-height: 0;
+}
+
+.synth-module--sequencer .synth-module__steps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.synth-module--sequencer .synth-module__step-labels,
+.synth-module--sequencer .synth-module__row--steps {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.15rem;
+}
+
+.synth-module--sequencer .synth-module__step-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.synth-module--sequencer .synth-module__step-row-label {
+  width: 2.2em;
+  font-size: 0.65rem;
+  flex-shrink: 0;
+}
+
+.synth-module--sequencer .synth-module__step {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 縦ピッチスライダー（ラッパーで回転して全ブラウザで縦表示） */
+.synth-module--sequencer .synth-module__step--pitch {
+  height: 2.5rem;
+}
+
+.synth-module--sequencer .synth-module__step-slider-wrap {
+  width: 1.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.synth-module--sequencer .synth-module__step-slider--vertical {
+  width: 2.5rem;
+  height: 0.5rem;
+  margin: 0;
+  transform: rotate(-90deg);
+  transform-origin: center center;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--bg-tertiary);
+  border-radius: 3px;
+}
+
+.synth-module--sequencer .synth-module__step-slider--vertical::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+}
+
+.synth-module--sequencer .synth-module__step-slider--vertical::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  border: none;
+}
+
+/* ゲート：シンプルなトグルボタン */
+.synth-module--sequencer .synth-module__step--gate {
+  height: auto;
+}
+
+.synth-module--sequencer .synth-module__step-gate {
+  width: 1.25rem;
+  height: 1.25rem;
+  padding: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 3px;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.synth-module--sequencer .synth-module__step-gate:hover {
+  border-color: var(--accent);
+}
+
+.synth-module--sequencer .synth-module__step-gate--on {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ---------- ケーブルレイヤー（前面に表示しつつ pointer-events: none でドロップは下のジャックへ） ---------- */
+.synth-cables {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.synth-cables__svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.synth-cable {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- ジャック（出力・入力） ---------- */
+.synth-module__header-jacks {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  margin-right: 0.25rem;
+}
+
+.synth-module__jack-wrap {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.synth-jack {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid;
+  cursor: grab;
+  flex-shrink: 0;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+
+.synth-jack:active {
+  cursor: grabbing;
+}
+
+.synth-jack--output {
+  background: var(--color-modulator);
+  border-color: var(--color-modulator);
+}
+
+.synth-jack--output:hover {
+  box-shadow: 0 0 0 2px var(--color-modulator);
+}
+
+.synth-jack--input {
+  background: var(--bg-tertiary);
+  border-color: var(--border-color);
+}
+
+.synth-jack--input:hover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.synth-jack--dragging {
+  opacity: 0.8;
+  transform: scale(1.2);
+}
+
+.synth-jack--drag-over {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent);
+}

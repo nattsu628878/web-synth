@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Web Synth</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <h1>Web Synth</h1>
+      <div class="header-actions">
+        <button type="button" class="header-btn" id="saveProjectBtn" title="Save project as JSON">Save</button>
+        <label class="header-btn header-btn--file" for="loadProjectInput" title="Open saved JSON">Open<input type="file" id="loadProjectInput" accept=".json,application/json" hidden></label>
+        <button type="button" class="theme-toggle" id="themeToggle" title="Toggle dark mode">
+          <span class="theme-icon">🌙</span>
+          <span class="theme-toggle-text">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="info-section">
+      <p>Add sources on the left. Add effects and modulators (LFO/Envelope) per row; drag to reorder. Connect LFO/Envelope to params via cables. Scroll horizontally if needed.</p>
+    </div>
+
+    <div class="synth-picker" id="modulePicker">
+      <div class="synth-picker__group">
+        <span class="synth-picker__label">Sources (new row)</span>
+        <div class="synth-picker__list synth-picker__list--source" id="pickerSources"></div>
+      </div>
+      <div class="synth-picker__group">
+        <span class="synth-picker__label">Effects</span>
+        <div class="synth-picker__row-wrap">
+          <label class="synth-picker__row-label" for="rowSelectForEffect">Row</label>
+          <select class="synth-picker__row-select" id="rowSelectForEffect" aria-label="Target row"></select>
+        </div>
+        <div class="synth-picker__list synth-picker__list--effect" id="pickerEffects"></div>
+      </div>
+      <div class="synth-picker__group">
+        <span class="synth-picker__label">Modulators</span>
+        <div class="synth-picker__row-wrap">
+          <label class="synth-picker__row-label" for="rowSelectForModulator">Row</label>
+          <select class="synth-picker__row-select" id="rowSelectForModulator" aria-label="Target row"></select>
+        </div>
+        <div class="synth-picker__list synth-picker__list--modulator" id="pickerModulators"></div>
+      </div>
+    </div>
+
+    <!-- ラック＋右パネル（同じ高さ） -->
+    <div class="synth-rack-area">
+      <div class="synth-rack" id="rackContainer"></div>
+      <aside class="synth-master-panel" aria-label="Master output">
+        <div class="synth-master-volume">
+          <label class="synth-master-volume__label" for="masterVolume">Vol</label>
+          <input type="range" class="synth-master-volume__slider" id="masterVolume" min="0" max="100" value="25" title="Master volume">
+          <span class="synth-master-volume__value" id="masterVolumeValue">0.25</span>
+        </div>
+        <div class="synth-master-meter">
+          <span class="synth-master-meter__label">Level</span>
+          <div class="synth-master-meter__digital" role="meter" aria-label="Output level">
+            <div class="synth-master-meter__segments" id="masterMeterSegments" aria-hidden="true">
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+              <div class="synth-master-meter__segment"></div>
+            </div>
+            <span class="synth-master-meter__value" id="masterMeterValue">-∞ dB</span>
+          </div>
+        </div>
+        <div class="synth-master-waveform">
+          <span class="synth-master-waveform__label">Wave</span>
+          <div class="synth-master-waveform__wrap">
+            <canvas class="synth-master-waveform__canvas" id="masterWaveformCanvas" aria-hidden="true"></canvas>
+          </div>
+        </div>
+        <div class="synth-master-spectrum">
+          <span class="synth-master-spectrum__label">Spectrum</span>
+          <div class="synth-master-spectrum__wrap">
+            <canvas class="synth-master-spectrum__canvas" id="masterSpectrumCanvas" aria-hidden="true"></canvas>
+          </div>
+        </div>
+        <div class="synth-master-spectrogram">
+          <span class="synth-master-spectrogram__label">Spectrogram</span>
+          <div class="synth-master-spectrogram__wrap">
+            <canvas class="synth-master-spectrogram__canvas" id="masterSpectrogramCanvas" aria-hidden="true"></canvas>
+          </div>
+        </div>
+        <div class="synth-master-goniometer">
+          <span class="synth-master-goniometer__label">Goniometer</span>
+          <div class="synth-master-goniometer__wrap">
+            <canvas class="synth-master-goniometer__canvas" id="masterGoniometerCanvas" aria-hidden="true"></canvas>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- キャッシュ対策: JS 変更時に ?v= の数字を増やすと確実に再読み込みされる -->
+  <script type="module" src="js/main.js?v=3"></script>
+</body>
+</html>
