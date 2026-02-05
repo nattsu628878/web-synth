@@ -13,33 +13,40 @@ import {
   setRackContainer,
   setOnChainChange,
   setOnPanChange,
+  setOnMuteSoloChange,
   setRowName,
   setRowPan,
+  setRowMute,
+  setRowSolo,
   getSlotIndex,
   getSlotInstanceId,
   clearRack,
   getRows,
 } from './rack.js';
 import { resumeContext, getMasterInput, getMasterAnalyser, getMasterAnalyserL, getMasterAnalyserR, ensureAudioContext } from './audio-core.js';
-import { sampleModule } from './modules/sample-module.js';
-import { waveformGeneratorModule } from './modules/waveform-generator.js';
-import { fmSynthModule } from './modules/fm-synth.js';
-import { wavetableModule } from './modules/wavetable.js';
-import { reverbModule } from './modules/reverb.js';
-import { lfoModule } from './modules/lfo.js';
-import { envelopeModule } from './modules/envelope.js';
-import { sequencerModule } from './modules/sequencer.js';
-import { initCables, redrawCables, getConnections, addConnectionFromLoad, clearAllConnections } from './cables.js';
+import { sampleModule } from './modules/source/sample-module.js';
+import { waveformGeneratorModule } from './modules/source/waveform-generator.js';
+import { fmSynthModule } from './modules/source/fm-synth.js';
+import { wavetableModule } from './modules/source/wavetable.js';
+import { noiseModule } from './modules/source/noise.js';
+import { reverbModule } from './modules/effect/reverb.js';
+import { lfoModule } from './modules/modulator/lfo.js';
+import { envelopeModule } from './modules/modulator/envelope.js';
+import { sequencer8Module, sequencer16Module, sequencer64Module } from './modules/modulator/sequencer.js';
+import { initCables, redrawCables, getConnections, addConnectionFromLoad, clearAllConnections, createOutputJack, setCableDroop, getCableDroop } from './cables.js';
 
 // ---------- モジュール登録 ----------
 registerModule(sampleModule);
 registerModule(waveformGeneratorModule);
 registerModule(fmSynthModule);
 registerModule(wavetableModule);
+registerModule(noiseModule);
 registerModule(reverbModule);
 registerModule(lfoModule);
 registerModule(envelopeModule);
-registerModule(sequencerModule);
+registerModule(sequencer8Module);
+registerModule(sequencer16Module);
+registerModule(sequencer64Module);
 
 // ---------- DOM ----------
 const rackContainer = document.getElementById('rackContainer');
@@ -55,6 +62,32 @@ const saveProjectBtn = document.getElementById('saveProjectBtn');
 const loadProjectInput = document.getElementById('loadProjectInput');
 
 setRackContainer(rackContainer);
+
+// ---------- 数値表示ホバー＋スクロールで無段階変更 ----------
+// ラック内の .synth-module__value にホバーしながらホイールで対応スライダーを無段階変更
+const SCROLL_SENSITIVITY = 0.004; // レンジ幅に対する割合（1スクロールあたり・ゆっくり）
+rackContainer.addEventListener('wheel', (e) => {
+  const valueEl = e.target.closest('.synth-module__value');
+  if (!valueEl) return;
+  if (valueEl.classList.contains('synth-module__step-pitch-value')) return;
+  const row = valueEl.closest('.synth-module__row');
+  if (!row) return;
+  const input = row.querySelector('input[type="range"]');
+  if (!input) return;
+  e.preventDefault();
+  const min = parseFloat(input.min) || 0;
+  const max = parseFloat(input.max) || 100;
+  const range = max - min;
+  if (range <= 0) return;
+  let current = parseFloat(input.value) || min;
+  const delta = -e.deltaY * range * SCROLL_SENSITIVITY;
+  const next = Math.max(min, Math.min(max, current + delta));
+  if (next === current) return;
+  input.setAttribute('step', 'any');
+  input.value = String(next);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+}, { passive: false });
+
 setOnChainChange(async (rowIndex) => {
   await connectRowToMaster(rowIndex);
 });
@@ -65,6 +98,27 @@ setOnPanChange((rowIndex, panValue) => {
     panner.pan.setTargetAtTime(panValue, ctx.currentTime, 0.01);
   }
 });
+
+/** 行ごとのミュート/ソロ用 GainNode（tail → gain → panner → master） */
+const rowGainNodes = new Map();
+
+function computeRowGain(rowIndex) {
+  const rows = getRows();
+  const row = rows[rowIndex];
+  if (!row) return 1;
+  const anySolo = rows.some((r) => r.solo);
+  if (anySolo) return row.solo ? 1 : 0;
+  return row.mute ? 0 : 1;
+}
+
+function applyAllRowGains() {
+  const ctx = ensureAudioContext();
+  for (const [rowIndex, gainNode] of rowGainNodes) {
+    gainNode.gain.setTargetAtTime(computeRowGain(rowIndex), ctx.currentTime, 0.01);
+  }
+}
+
+setOnMuteSoloChange(applyAllRowGains);
 getMasterInput();
 
 /** 行・スロットから slot オブジェクトを取得 */
@@ -82,6 +136,10 @@ const modulationScaleNodes = new Map();
 /** Gate → Trigger 接続時のコールバック管理（切断時に removeGateListener する用） */
 const triggerConnections = new Map();
 
+/** マスター Sync の購読者（advanceStep を tick で呼ぶ）。key: `${toRow}-${toSlotId}` */
+const masterSyncReceivers = new Set();
+const masterSyncConnectionKeys = new Map();
+
 function connectionKey(fromRow, fromSlotId, toRow, toSlotId, toParamId) {
   return `${fromRow}:${fromSlotId}:${toRow}:${toSlotId}:${toParamId}`;
 }
@@ -90,8 +148,19 @@ function triggerConnectionKey(fromRow, fromSlotId, fromOutputId, toRow, toSlotId
   return `${fromRow}:${fromSlotId}:${fromOutputId}:${toRow}:${toSlotId}:${toParamId}`;
 }
 
-/** ケーブル接続時: モジュレータ出力 → ターゲットの AudioParam、または Gate → Trigger、または Pan */
+/** ケーブル接続時: モジュレータ出力 → ターゲットの AudioParam、または Gate → Trigger、または Pan、または Master Sync → Sequencer Sync In */
 async function handleCableConnect(fromRow, fromSlotId, toRow, toSlotId, toParamId, fromOutputId) {
+  // Master Sync Out → Sequencer Sync In: マスター BPM の tick でシーケンサを進行
+  if (fromRow === -1 && fromSlotId === 'master' && fromOutputId === 'sync' && toParamId === 'syncIn') {
+    const toSlot = getSlotAt(toRow, toSlotId);
+    if (toSlot?.instance?.advanceStep && typeof toSlot.instance.setSyncConnected === 'function') {
+      toSlot.instance.setSyncConnected(true, masterTick);
+      masterSyncReceivers.add(toSlot.instance.advanceStep);
+      masterSyncConnectionKeys.set(`${toRow}-${toSlotId}`, toSlot.instance.advanceStep);
+    }
+    return;
+  }
+
   const fromSlot = getSlotAt(fromRow, fromSlotId);
   if (!fromSlot?.instance) return;
 
@@ -147,6 +216,18 @@ async function handleCableConnect(fromRow, fromSlotId, toRow, toSlotId, toParamI
 
 /** ケーブル切断時: 接続を解除 */
 function handleCableDisconnect(fromRow, fromSlotId, toRow, toSlotId, toParamId, fromOutputId) {
+  if (fromRow === -1 && fromSlotId === 'master' && fromOutputId === 'sync' && toParamId === 'syncIn') {
+    const key = `${toRow}-${toSlotId}`;
+    const advanceStepFn = masterSyncConnectionKeys.get(key);
+    if (advanceStepFn) {
+      masterSyncReceivers.delete(advanceStepFn);
+      masterSyncConnectionKeys.delete(key);
+    }
+    const toSlot = getSlotAt(toRow, toSlotId);
+    if (toSlot?.instance?.setSyncConnected) toSlot.instance.setSyncConnected(false);
+    return;
+  }
+
   const fromSlot = getSlotAt(fromRow, fromSlotId);
 
   if (toParamId === 'pan' && toSlotId === 'pan') {
@@ -194,7 +275,80 @@ function handleCableDisconnect(fromRow, fromSlotId, toRow, toSlotId, toParamId, 
   } catch (_) {}
 }
 
-initCables(rackContainer, getRows, handleCableConnect, handleCableDisconnect);
+const synthRackArea = rackContainer?.parentElement;
+if (synthRackArea) {
+  initCables(synthRackArea, getRows, handleCableConnect, handleCableDisconnect);
+  rackContainer.addEventListener('scroll', redrawCables);
+}
+
+const cableDroopInput = document.getElementById('cableDroopInput');
+const cableDroopValue = document.getElementById('cableDroopValue');
+if (cableDroopInput && cableDroopValue) {
+  cableDroopInput.value = String(getCableDroop());
+  cableDroopValue.textContent = String(getCableDroop());
+  cableDroopInput.addEventListener('input', () => {
+    setCableDroop(cableDroopInput.value);
+    cableDroopValue.textContent = String(getCableDroop());
+    redrawCables();
+  });
+}
+
+// ---------- マスター BPM / Sync ----------
+let masterBPM = 120;
+let masterSyncIntervalId = null;
+
+const masterSyncLamp = document.getElementById('masterSyncLamp');
+const LAMP_FLASH_MS = 80;
+/** マスターが管理するグローバル tick（16分音符ごとに 1 増加、0,1,2,...）。各 Seq は tick % stepCount でステップに変換 */
+let masterTick = 0;
+
+function startMasterSyncInterval() {
+  if (masterSyncIntervalId) clearInterval(masterSyncIntervalId);
+  masterTick = 0;
+  const stepMs = (60 * 1000) / masterBPM / 4;
+  masterSyncIntervalId = setInterval(() => {
+    masterTick += 1;
+    if (masterSyncLamp && masterTick % 4 === 0) {
+      masterSyncLamp.classList.add('synth-master-sync__lamp--on');
+      setTimeout(() => masterSyncLamp.classList.remove('synth-master-sync__lamp--on'), LAMP_FLASH_MS);
+    }
+    for (const advanceStep of masterSyncReceivers) {
+      try {
+        advanceStep(masterTick);
+      } catch (_) {}
+    }
+  }, stepMs);
+}
+
+const masterBpmSlider = document.getElementById('masterBpm');
+const masterBpmValue = document.getElementById('masterBpmValue');
+const masterBpmBarFill = document.getElementById('masterBpmBarFill');
+const MASTER_BPM_MIN = 40;
+const MASTER_BPM_MAX = 240;
+
+function updateMasterBpmBar() {
+  if (!masterBpmSlider || !masterBpmBarFill) return;
+  const v = Number(masterBpmSlider.value);
+  const pct = ((v - MASTER_BPM_MIN) / (MASTER_BPM_MAX - MASTER_BPM_MIN)) * 100;
+  masterBpmBarFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+}
+
+if (masterBpmSlider && masterBpmValue) {
+  masterBpmSlider.addEventListener('input', () => {
+    masterBPM = Math.max(MASTER_BPM_MIN, Math.min(MASTER_BPM_MAX, Number(masterBpmSlider.value)));
+    masterBpmValue.textContent = String(Math.floor(masterBPM));
+    updateMasterBpmBar();
+    startMasterSyncInterval();
+  });
+  masterBpmValue.textContent = String(masterBPM);
+  updateMasterBpmBar();
+}
+startMasterSyncInterval();
+
+const masterSyncOutContainer = document.getElementById('masterSyncOutContainer');
+if (masterSyncOutContainer) {
+  createOutputJack(masterSyncOutContainer, 'sync');
+}
 
 const masterVolumeSlider = document.getElementById('masterVolume');
 const masterVolumeValue = document.getElementById('masterVolumeValue');
@@ -227,13 +381,54 @@ function spectrogramColor(value) {
   return `rgb(${Math.round(100 + s * 155)}, ${Math.round(136 + s * 119)}, ${Math.round(120 + s * 135)})`;
 }
 
+const masterVolumeBarFill = document.getElementById('masterVolumeBarFill');
+
+function updateMasterVolumeBar() {
+  if (!masterVolumeSlider || !masterVolumeBarFill) return;
+  const pct = Number(masterVolumeSlider.value);
+  masterVolumeBarFill.style.width = `${Math.max(0, Math.min(100, pct))}%`;
+}
+
 if (masterVolumeSlider && masterVolumeValue) {
   masterVolumeSlider.addEventListener('input', () => {
     const v = Number(masterVolumeSlider.value) / 100;
     getMasterInput().gain.setTargetAtTime(v, getMasterInput().context.currentTime, 0.01);
     masterVolumeValue.textContent = v.toFixed(2);
+    updateMasterVolumeBar();
   });
   masterVolumeValue.textContent = (Number(masterVolumeSlider?.value ?? 25) / 100).toFixed(2);
+  updateMasterVolumeBar();
+}
+
+const masterPanel = document.querySelector('.synth-master-panel');
+const SCROLL_SENSITIVITY_MASTER = 0.004;
+if (masterPanel) {
+  masterPanel.addEventListener('wheel', (e) => {
+    const valueEl = e.target.closest('.synth-master-sync__value--editable, .synth-master-volume__value--editable');
+    if (!valueEl) return;
+    e.preventDefault();
+    if (valueEl.id === 'masterBpmValue' && masterBpmSlider) {
+      const min = MASTER_BPM_MIN;
+      const max = MASTER_BPM_MAX;
+      const range = max - min;
+      let current = parseFloat(masterBpmSlider.value) || min;
+      const delta = -e.deltaY * range * SCROLL_SENSITIVITY_MASTER;
+      const next = Math.max(min, Math.min(max, current + delta));
+      if (next === current) return;
+      masterBpmSlider.value = String(next);
+      masterBpmSlider.dispatchEvent(new Event('input', { bubbles: true }));
+    } else if (valueEl.id === 'masterVolumeValue' && masterVolumeSlider) {
+      const min = 0;
+      const max = 100;
+      const range = max - min;
+      let current = parseFloat(masterVolumeSlider.value) || min;
+      const delta = -e.deltaY * range * SCROLL_SENSITIVITY_MASTER;
+      const next = Math.max(min, Math.min(max, current + delta));
+      if (next === current) return;
+      masterVolumeSlider.value = String(next);
+      masterVolumeSlider.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }, { passive: false });
 }
 
 let analyserDataArray = null;
@@ -420,7 +615,7 @@ const rowTailToMaster = new Map();
 /** 行ごとにパンナーへ入力しているノード（再接続時に disconnect する用） */
 const rowTailInput = new Map();
 
-/** 行のオーディオチェーンを source → effects → panner → master に接続（既存接続は解除） */
+/** 行のオーディオチェーンを source → effects → gain(ミュート/ソロ) → panner → master に接続（既存接続は解除） */
 async function connectRowToMaster(rowIndex) {
   const rows = getRows();
   const row = rows[rowIndex];
@@ -430,13 +625,16 @@ async function connectRowToMaster(rowIndex) {
   const master = getMasterInput();
   const oldPanner = rowTailToMaster.get(rowIndex);
   const oldTailInput = rowTailInput.get(rowIndex);
+  const oldGain = rowGainNodes.get(rowIndex);
   if (oldPanner) {
     try {
-      if (oldTailInput) oldTailInput.disconnect(oldPanner);
+      if (oldTailInput) oldTailInput.disconnect(oldGain || oldPanner);
+      if (oldGain) oldGain.disconnect(oldPanner);
       oldPanner.disconnect(master);
     } catch (_) {}
     rowTailToMaster.delete(rowIndex);
     rowTailInput.delete(rowIndex);
+    rowGainNodes.delete(rowIndex);
   }
   let tail = row.source.instance.getAudioOutput();
   for (const slot of row.chain) {
@@ -445,9 +643,14 @@ async function connectRowToMaster(rowIndex) {
       tail = slot.instance.getAudioOutput();
     }
   }
+  const gainNode = ctx.createGain();
+  gainNode.gain.value = computeRowGain(rowIndex);
+  tail.connect(gainNode);
+  rowGainNodes.set(rowIndex, gainNode);
+
   const panner = ctx.createStereoPanner();
   panner.pan.value = row.pan ?? 0;
-  tail.connect(panner);
+  gainNode.connect(panner);
   panner.connect(master);
   rowTailToMaster.set(rowIndex, panner);
   rowTailInput.set(rowIndex, tail);
@@ -510,6 +713,8 @@ function saveProject() {
       const r = {
         name: row.name,
         pan: row.pan ?? 0,
+        mute: !!row.mute,
+        solo: !!row.solo,
         source: row.source ? { typeId: row.source.typeId } : null,
         chain: row.chain.map((s) => ({ typeId: s.typeId })),
       };
@@ -553,6 +758,8 @@ async function loadProject(file) {
   clearAllConnections();
   modulationScaleNodes.clear();
   triggerConnections.clear();
+  masterSyncReceivers.clear();
+  masterSyncConnectionKeys.clear();
   clearRack();
 
   await resumeContext();
@@ -563,19 +770,22 @@ async function loadProject(file) {
     if (!result) continue;
     setRowName(result.rowIndex, r.name || `Row ${ri + 1}`);
     setRowPan(result.rowIndex, r.pan ?? 0);
+    setRowMute(result.rowIndex, !!r.mute);
+    setRowSolo(result.rowIndex, !!r.solo);
     if (result.slot.instance.getAudioOutput) {
       await connectRowToMaster(result.rowIndex);
     }
     const chain = r.chain || [];
     for (const slot of chain) {
       if (!slot.typeId) continue;
-      const factory = getRegisteredModules().find((m) => m.id === slot.typeId);
+      const typeId = slot.typeId;
+      const factory = getRegisteredModules().find((m) => m.id === typeId);
       if (!factory) continue;
       if (factory.kind === 'effect') {
-        const s = addEffectToRow(result.rowIndex, slot.typeId);
+        const s = addEffectToRow(result.rowIndex, typeId);
         if (s) await connectRowToMaster(result.rowIndex);
       } else if (factory.kind === 'modulator') {
-        addModulatorToRow(result.rowIndex, slot.typeId);
+        addModulatorToRow(result.rowIndex, typeId);
       }
     }
   }
@@ -591,6 +801,7 @@ async function loadProject(file) {
   for (let ri = 0; ri < rows.length; ri++) {
     applyPanConnectionsForRow(ri);
   }
+  applyAllRowGains();
   updateRowSelects();
   redrawCables();
 }

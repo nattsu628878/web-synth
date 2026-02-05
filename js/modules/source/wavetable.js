@@ -3,9 +3,10 @@
  * Web Synth - ウェーブテーブル音源（PeriodicWave ＋ 波形変形モーフィング）
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { attachWaveformViz } from '../waveform-viz.js';
-import { createInputJack } from '../cables.js';
+import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
+import { createInputJack } from '../../cables.js';
 
 const FRAME_COUNT = 4096;
 
@@ -72,7 +73,7 @@ const WAVE_SHAPES = [
   { value: 'triangle', label: 'Tri' },
 ];
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const wavetableModule = {
   meta: {
     id: 'wavetable',
@@ -85,7 +86,9 @@ export const wavetableModule = {
     const ctx = ensureAudioContext();
     const osc = ctx.createOscillator();
     const gainNode = ctx.createGain();
+    const morphDrive = ctx.createGain();
     gainNode.gain.value = 0.3;
+    morphDrive.gain.value = 0;
     osc.connect(gainNode);
 
     const root = document.createElement('div');
@@ -152,18 +155,30 @@ export const wavetableModule = {
     const morphRow = document.createElement('div');
     morphRow.className = 'synth-module__row';
     morphRow.innerHTML = '<label class="synth-module__label">Morph</label><input type="range" class="synth-module__slider" data-param="morph" min="0" max="100" step="1" value="0" title="0 = Wave A, 100 = Wave B"><span class="synth-module__value" data-param="morphValue">0 %</span>';
+    const morphJackWrap = document.createElement('div');
+    morphJackWrap.className = 'synth-module__jack-wrap';
+    createInputJack(morphJackWrap, 'morph');
+    morphRow.appendChild(morphJackWrap);
     body.appendChild(morphRow);
 
+    function getMorphT() {
+      try {
+        const v = morphDrive.gain.getValueAtTime(ctx.currentTime);
+        return Math.max(0, Math.min(1, v));
+      } catch (_) {
+        return Number(morphInput.value) / 100;
+      }
+    }
     function applyWave() {
       const shapeA = waveASelect.value;
       const shapeB = waveBSelect.value;
-      const morphT = Number(morphInput.value) / 100;
+      const morphT = getMorphT();
       osc.setPeriodicWave(createMorphedPeriodicWave(ctx, shapeA, shapeB, morphT));
     }
 
     const freqRow = document.createElement('div');
     freqRow.className = 'synth-module__row';
-    freqRow.innerHTML = '<label class="synth-module__label">Freq</label><input type="range" class="synth-module__slider" data-param="freq" min="20" max="2000" step="1" value="440"><span class="synth-module__value">440 Hz</span>';
+    freqRow.innerHTML = '<label class="synth-module__label">Freq</label><input type="range" class="synth-module__slider" data-param="freq" min="20" max="20000" step="1" value="440"><span class="synth-module__value">440 Hz</span>';
     const freqJackWrap = document.createElement('div');
     freqJackWrap.className = 'synth-module__jack-wrap';
     createInputJack(freqJackWrap, 'frequency');
@@ -195,18 +210,29 @@ export const wavetableModule = {
     waveASelect.addEventListener('change', () => applyWave());
     waveBSelect.addEventListener('change', () => applyWave());
     morphInput.addEventListener('input', () => {
-      morphValue.textContent = `${morphInput.value} %`;
+      const v = Number(morphInput.value) / 100;
+      morphDrive.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
+      morphValue.textContent = `${formatParamValue(morphInput.value)} %`;
       applyWave();
     });
-    morphValue.textContent = `${morphInput.value} %`;
+    morphDrive.gain.value = Number(morphInput.value) / 100;
+    morphValue.textContent = `${formatParamValue(morphInput.value)} %`;
+
+    let morphRAF = 0;
+    function morphTick() {
+      applyWave();
+      morphValue.textContent = `${formatParamValue(Math.round(getMorphT() * 100))} %`;
+      morphRAF = requestAnimationFrame(morphTick);
+    }
+    morphRAF = requestAnimationFrame(morphTick);
 
     freqInput.addEventListener('input', () => {
       osc.frequency.setTargetAtTime(Number(freqInput.value), ctx.currentTime, 0.01);
-      freqValue.textContent = `${freqInput.value} Hz`;
+      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
     });
     gainInput.addEventListener('input', () => {
       gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
-      gainValue.textContent = `${gainInput.value} %`;
+      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
     });
 
     osc.frequency.value = 440;
@@ -219,16 +245,19 @@ export const wavetableModule = {
       },
       getModulatableParams() {
         return [
+          { id: 'morph', name: 'Morph', param: morphDrive.gain },
           { id: 'frequency', name: 'Freq', param: osc.frequency, modulationScale: 100 },
           { id: 'gain', name: 'Gain', param: gainNode.gain },
         ];
       },
       destroy() {
+        if (morphRAF) cancelAnimationFrame(morphRAF);
         viz.destroy();
         try {
           osc.stop();
           osc.disconnect();
           gainNode.disconnect();
+          morphDrive.disconnect();
         } catch (_) {}
       },
     };

@@ -11,6 +11,11 @@
     <div class="header-content">
       <h1>Web Synth</h1>
       <div class="header-actions">
+        <div class="header-cable-sag" title="Cable sag (droop)">
+          <label class="header-cable-sag__label" for="cableDroopInput">Cable sag</label>
+          <input type="range" class="header-cable-sag__slider" id="cableDroopInput" min="0" max="100" value="40" aria-label="Cable sag">
+          <span class="header-cable-sag__value" id="cableDroopValue">40</span>
+        </div>
         <button type="button" class="header-btn" id="saveProjectBtn" title="Save project as JSON">Save</button>
         <label class="header-btn header-btn--file" for="loadProjectInput" title="Open saved JSON">Open<input type="file" id="loadProjectInput" accept=".json,application/json" hidden></label>
         <button type="button" class="theme-toggle" id="themeToggle" title="Toggle dark mode">
@@ -22,10 +27,6 @@
   </header>
 
   <div class="container">
-    <div class="info-section">
-      <p>Add sources on the left. Add effects and modulators (LFO/Envelope) per row; drag to reorder. Connect LFO/Envelope to params via cables. Scroll horizontally if needed.</p>
-    </div>
-
     <div class="synth-picker" id="modulePicker">
       <div class="synth-picker__group">
         <span class="synth-picker__label">Sources (new row)</span>
@@ -53,10 +54,30 @@
     <div class="synth-rack-area">
       <div class="synth-rack" id="rackContainer"></div>
       <aside class="synth-master-panel" aria-label="Master output">
+        <div class="synth-master-sync">
+          <div class="synth-master-sync__row">
+            <label class="synth-master-sync__label" for="masterBpm">BPM</label>
+            <div class="synth-master-sync__bar" aria-hidden="true">
+              <div class="synth-master-sync__bar-fill" id="masterBpmBarFill"></div>
+            </div>
+            <span class="synth-master-sync__value synth-master-sync__value--editable" id="masterBpmValue" title="Scroll to change">120</span>
+          </div>
+          <input type="range" class="synth-master-sync__slider synth-master-sync__slider--hidden" id="masterBpm" min="40" max="240" value="120" title="Global BPM (sync source)" aria-hidden="true">
+          <div class="synth-master-sync__jack-row" title="Sync Out – drag to Sequencer Sync In">
+            <div class="synth-master-sync__jack-wrap" id="masterSyncOutContainer"></div>
+            <span class="synth-master-sync__jack-label">Sync Out</span>
+            <span class="synth-master-sync__lamp" id="masterSyncLamp" role="img" aria-label="BPM sync indicator"></span>
+          </div>
+        </div>
         <div class="synth-master-volume">
-          <label class="synth-master-volume__label" for="masterVolume">Vol</label>
-          <input type="range" class="synth-master-volume__slider" id="masterVolume" min="0" max="100" value="25" title="Master volume">
-          <span class="synth-master-volume__value" id="masterVolumeValue">0.25</span>
+          <div class="synth-master-volume__row">
+            <label class="synth-master-volume__label" for="masterVolume">Vol</label>
+            <div class="synth-master-volume__bar" aria-hidden="true">
+              <div class="synth-master-volume__bar-fill" id="masterVolumeBarFill"></div>
+            </div>
+            <span class="synth-master-volume__value synth-master-volume__value--editable" id="masterVolumeValue" title="Scroll to change">0.25</span>
+          </div>
+          <input type="range" class="synth-master-volume__slider synth-master-volume__slider--hidden" id="masterVolume" min="0" max="100" value="25" title="Master volume" aria-hidden="true">
         </div>
         <div class="synth-master-meter">
           <span class="synth-master-meter__label">Level</span>

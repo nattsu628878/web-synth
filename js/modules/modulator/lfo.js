@@ -4,9 +4,10 @@
  * 低周波オシレータ。同じ段の音源・エフェクトのパラメータに接続可能。
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { attachWaveformViz } from '../waveform-viz.js';
-import { createOutputJack } from '../cables.js';
+import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
+import { createOutputJack } from '../../cables.js';
 
 const WAVE_TYPES = [
   { value: 'sine', label: 'Sine' },
@@ -15,7 +16,7 @@ const WAVE_TYPES = [
   { value: 'sawtooth', label: 'Saw' },
 ];
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const lfoModule = {
   meta: {
     id: 'lfo',
@@ -92,15 +93,15 @@ export const lfoModule = {
     });
     freqInput.addEventListener('input', () => {
       osc.frequency.setTargetAtTime(Number(freqInput.value), ctx.currentTime, 0.01);
-      freqValue.textContent = `${freqInput.value} Hz`;
+      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
     });
     depthInput.addEventListener('input', () => {
       const v = Number(depthInput.value) / 100;
       depthGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
-      depthValue.textContent = `${depthInput.value} %`;
+      depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
-    freqValue.textContent = `${freqInput.value} Hz`;
-    depthValue.textContent = `${depthInput.value} %`;
+    freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+    depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
 
     const viz = attachWaveformViz(body, depthGain);
 

@@ -4,9 +4,10 @@
  * ConvolverNode で簡易リバーブ。Dry/Wet で原音と混ぜる。
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { attachWaveformViz } from '../waveform-viz.js';
-import { createInputJack } from '../cables.js';
+import { formatParamValue } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
+import { createInputJack } from '../../cables.js';
 
 /**
  * 簡易リバーブ用インパルス応答を生成（指数減衰ノイズ）
@@ -29,7 +30,7 @@ function createReverbIR(ctx, durationSec = 1.5) {
   return buffer;
 }
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const reverbModule = {
   meta: {
     id: 'reverb',
@@ -94,7 +95,7 @@ export const reverbModule = {
       const w = Number(mixInput.value) / 100;
       wetGain.gain.setTargetAtTime(w, ctx.currentTime, 0.01);
       dryGain.gain.setTargetAtTime(1 - w, ctx.currentTime, 0.01);
-      mixValue.textContent = `${mixInput.value} %`;
+      mixValue.textContent = `${formatParamValue(mixInput.value)} %`;
     });
     mixValue.textContent = '30 %';
 

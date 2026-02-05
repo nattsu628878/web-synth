@@ -4,9 +4,9 @@
  * 後から細かい UI や画像を追加しやすいようにルート要素だけ用意
  */
 
-import { attachWaveformViz } from '../waveform-viz.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const sampleModule = {
   meta: {
     id: 'sample',

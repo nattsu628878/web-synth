@@ -5,8 +5,9 @@
  * 波形窓に ADSR の形を表示し、トリガー時に軌跡をアニメーション。
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { createOutputJack, createInputJack } from '../cables.js';
+import { formatParamValue } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { createOutputJack, createInputJack } from '../../cables.js';
 
 /** ADSR の値 at time t (0 <= t <= totalSec) を返す。totalSec = attack + decay + release */
 function envelopeValueAt(t, attack, decay, sustain, release) {
@@ -129,7 +130,7 @@ function attachEnvelopeViz(container, getParams) {
   };
 }
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const envelopeModule = {
   meta: {
     id: 'envelope',
@@ -217,15 +218,15 @@ export const envelopeModule = {
       outNode.offset.linearRampToValueAtTime(0, releaseStart + r);
     }
 
-    attackInput.addEventListener('input', () => { attackValue.textContent = `${attackInput.value} ms`; });
-    decayInput.addEventListener('input', () => { decayValue.textContent = `${decayInput.value} ms`; });
+    attackInput.addEventListener('input', () => { attackValue.textContent = `${formatParamValue(attackInput.value)} ms`; });
+    decayInput.addEventListener('input', () => { decayValue.textContent = `${formatParamValue(decayInput.value)} ms`; });
     sustainInput.addEventListener('input', () => {
-      sustainValue.textContent = `${sustainInput.value} %`;
+      sustainValue.textContent = `${formatParamValue(sustainInput.value)} %`;
     });
-    releaseInput.addEventListener('input', () => { releaseValue.textContent = `${releaseInput.value} ms`; });
+    releaseInput.addEventListener('input', () => { releaseValue.textContent = `${formatParamValue(releaseInput.value)} ms`; });
     depthInput.addEventListener('input', () => {
       depthGain.gain.setTargetAtTime(Number(depthInput.value) / 100, ctx.currentTime, 0.01);
-      depthValue.textContent = `${depthInput.value} %`;
+      depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
     function getParams() {
       return {
@@ -243,10 +244,10 @@ export const envelopeModule = {
       viz.trigger();
     });
 
-    attackValue.textContent = `${attackInput.value} ms`;
-    decayValue.textContent = `${decayInput.value} ms`;
+    attackValue.textContent = `${formatParamValue(attackInput.value)} ms`;
+    decayValue.textContent = `${formatParamValue(decayInput.value)} ms`;
     sustainValue.textContent = '70 %';
-    releaseValue.textContent = `${releaseInput.value} ms`;
+    releaseValue.textContent = `${formatParamValue(releaseInput.value)} ms`;
     depthValue.textContent = '50 %';
 
     return {

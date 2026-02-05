@@ -1,26 +1,40 @@
-# modules フォルダ構成
+# modules フォルダ
 
 ## 役割
 
-| ファイル | 種類 | main.js での登録 | 説明 |
-|----------|------|------------------|------|
-| **base.js** | インターフェース | 登録しない | `ModuleKind` / `ModuleMeta` / モジュール契約。各モジュールが JSDoc で参照。ラックに追加される「モジュール」ではない。 |
-| **sample-module.js** | source | ✅ registerModule(sampleModule) | プレースホルダ音源（発音なし）。 |
-| **waveform-generator.js** | source | ✅ registerModule(waveformGeneratorModule) | Osc。単一波形（Sine/Square/Saw/Tri）選択。 |
-| **fm-synth.js** | source | ✅ registerModule(fmSynthModule) | FM 音源。Carrier / Mod / Index / Gain。 |
-| **wavetable.js** | source | ✅ registerModule(wavetableModule) | Wavetable。**Wave A** / **Wave B** を 4 種から選択し、**Morph** で補間。 |
-| **reverb.js** | effect | ✅ registerModule(reverbModule) | リバーブ。Dry/Wet。 |
-| **lfo.js** | modulator | ✅ registerModule(lfoModule) | LFO。波形・Rate・Depth、出力ジャック。 |
-| **envelope.js** | modulator | ✅ registerModule(envelopeModule) | エンベロープ ADSR、トリガー、出力ジャック。 |
+各ファイルはモジュールファクトリを export し、main.js で `registerModule()` により rack.js に登録される。base.js は契約・型定義のみで、登録対象ではない。
 
-## 依存関係
+## フォルダ構成（kind 別）
 
-- **main.js** が上記 7 モジュールを import し、`registerModule()` で rack.js に登録。
-- **rack.js** は `moduleRegistry` に登録されたファクトリのみ使用。base.js は import しない。
-- 各モジュールは **base.js** を型参照のみ（JSDoc `@type {import('./base.js').ModuleFactory}`）で使用。base.js は export が空オブジェクトなので実行時の依存はない。
-- 各モジュールは **audio-core.js**（ensureAudioContext）、**cables.js**（createInputJack 等）、**waveform-viz.js**（attachWaveformViz）を必要に応じて import。
+モジュールは **kind**（source / effect / modulator）ごとにサブフォルダに配置する。
 
-## 不要なモジュール
+| フォルダ | kind | 説明 |
+|----------|------|------|
+| **source/** | source | 音源。1 行に 1 つ、左列。行を新規追加。 |
+| **effect/** | effect | エフェクト。チェーン内。音声入出力。 |
+| **modulator/** | modulator | モジュレータ。変調出力。同一行のパラメータにケーブル接続可能。 |
 
-- **なし**。base.js 以外の 7 ファイルはすべて main.js で登録され、ピッカー／ラックで使用されている。
-- base.js は「いらない」のではなく、共通の型・契約用で、ラックに並ぶモジュールとして登録しないだけ。
+base.js は modules 直下に置き、全モジュールから `../base.js`（source/effect/modulator 内）で参照する。
+
+## 一覧
+
+| ファイル | kind | 説明 |
+|----------|------|------|
+| **base.js** | — | ModuleKind / ModuleMeta / モジュール契約。各モジュールが JSDoc で参照。 |
+| **source/sample-module.js** | source | プレースホルダ音源（発音なし）。 |
+| **source/waveform-generator.js** | source | Osc。Sine/Square/Saw/Tri。Freq, Gain。 |
+| **source/fm-synth.js** | source | FM 音源。Carrier, Mod, Index, Gain。 |
+| **source/wavetable.js** | source | Wavetable。Wave A/B, Morph。Freq, Gain。 |
+| **source/noise.js** | source | ホワイトノイズ音源。Gain。 |
+| **effect/reverb.js** | effect | リバーブ。Wet。 |
+| **modulator/lfo.js** | modulator | LFO。Wave, Rate, Depth。出力 → パラメータ。 |
+| **modulator/envelope.js** | modulator | ADSR, Trigger（ボタン＋入力）。出力 → パラメータ。 |
+| **modulator/sequencer.js** | modulator | Seq-8 / Seq-16 / Seq-64。Pitch, Gate 出力、Sync In。上窓でステップ可視化。 |
+
+## 依存
+
+- **main.js** が各モジュールを `./modules/source/xxx.js` 等で import し `registerModule()` で登録。
+- 各モジュールは **base.js**（`../base.js`）、**audio-core.js**（`../../audio-core.js`）、**cables.js**（`../../cables.js`）、**waveform-viz.js**（`../../waveform-viz.js`）を必要に応じて import。
+- **base.js** は JSDoc の `@type {import('../base.js').ModuleFactory}` 等で参照。
+
+詳細はルートの [docs/modules.md](../../docs/modules.md) を参照。

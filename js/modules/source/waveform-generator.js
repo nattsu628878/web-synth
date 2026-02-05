@@ -3,9 +3,10 @@
  * Web Synth - 純粋な波形ジェネレータ（sine / square / sawtooth / triangle）
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { attachWaveformViz } from '../waveform-viz.js';
-import { createInputJack } from '../cables.js';
+import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
+import { createInputJack } from '../../cables.js';
 
 const WAVE_TYPES = [
   { value: 'sine', label: 'Sine' },
@@ -14,7 +15,7 @@ const WAVE_TYPES = [
   { value: 'triangle', label: 'Tri' },
 ];
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const waveformGeneratorModule = {
   meta: {
     id: 'waveform',
@@ -83,7 +84,7 @@ export const waveformGeneratorModule = {
     freqInput.type = 'range';
     freqInput.className = 'synth-module__slider';
     freqInput.min = '20';
-    freqInput.max = '2000';
+    freqInput.max = '20000';
     freqInput.step = '1';
     freqInput.value = '440';
     const freqValue = document.createElement('span');
@@ -125,10 +126,10 @@ export const waveformGeneratorModule = {
     root.appendChild(body);
 
     function updateFreqLabel() {
-      freqValue.textContent = `${freqInput.value} Hz`;
+      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
     }
     function updateGainLabel() {
-      gainValue.textContent = `${gainInput.value} %`;
+      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
     }
 
     waveSelect.addEventListener('change', () => {

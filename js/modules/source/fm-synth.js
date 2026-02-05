@@ -3,11 +3,12 @@
  * Web Synth - FM音源（キャリア + モジュレータで周波数変調）
  */
 
-import { ensureAudioContext } from '../audio-core.js';
-import { attachWaveformViz } from '../waveform-viz.js';
-import { createInputJack } from '../cables.js';
+import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { ensureAudioContext } from '../../audio-core.js';
+import { attachWaveformViz } from '../../waveform-viz.js';
+import { createInputJack } from '../../cables.js';
 
-/** @type {import('./base.js').ModuleFactory} */
+/** @type {import('../base.js').ModuleFactory} */
 export const fmSynthModule = {
   meta: {
     id: 'fm',
@@ -70,7 +71,7 @@ export const fmSynthModule = {
 
     const carrierRow = document.createElement('div');
     carrierRow.className = 'synth-module__row';
-    carrierRow.innerHTML = '<label class="synth-module__label">Carrier</label><input type="range" class="synth-module__slider" data-param="carrier" min="20" max="2000" step="1" value="440"><span class="synth-module__value">440 Hz</span>';
+    carrierRow.innerHTML = '<label class="synth-module__label">Carrier</label><input type="range" class="synth-module__slider" data-param="carrier" min="20" max="20000" step="1" value="440"><span class="synth-module__value">440 Hz</span>';
     const carrierJackWrap = document.createElement('div');
     carrierJackWrap.className = 'synth-module__jack-wrap';
     createInputJack(carrierJackWrap, 'carrierFreq');
@@ -79,7 +80,7 @@ export const fmSynthModule = {
 
     const modFreqRow = document.createElement('div');
     modFreqRow.className = 'synth-module__row';
-    modFreqRow.innerHTML = '<label class="synth-module__label">Mod</label><input type="range" class="synth-module__slider" data-param="modFreq" min="1" max="1000" step="1" value="220"><span class="synth-module__value">220 Hz</span>';
+    modFreqRow.innerHTML = '<label class="synth-module__label">Mod</label><input type="range" class="synth-module__slider" data-param="modFreq" min="1" max="20000" step="1" value="220"><span class="synth-module__value">220 Hz</span>';
     const modFreqJackWrap = document.createElement('div');
     modFreqJackWrap.className = 'synth-module__jack-wrap';
     createInputJack(modFreqJackWrap, 'modFreq');
@@ -120,26 +121,26 @@ export const fmSynthModule = {
     carrierInput.addEventListener('input', () => {
       const v = Number(carrierInput.value);
       carrierFreqConst.offset.setTargetAtTime(v, ctx.currentTime, 0.01);
-      carrierValue.textContent = `${v} Hz`;
+      carrierValue.textContent = `${formatParamValueFreq(carrierInput.value)} Hz`;
     });
     modFreqInput.addEventListener('input', () => {
       const v = Number(modFreqInput.value);
       modulator.frequency.setTargetAtTime(v, ctx.currentTime, 0.01);
-      modFreqValue.textContent = `${v} Hz`;
+      modFreqValue.textContent = `${formatParamValueFreq(modFreqInput.value)} Hz`;
     });
     indexInput.addEventListener('input', () => {
       const v = Number(indexInput.value);
       modGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
-      indexValue.textContent = `${v} —`;
+      indexValue.textContent = `${formatParamValue(indexInput.value)} —`;
     });
     gainInput.addEventListener('input', () => {
       outputGain.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
-      gainValue.textContent = `${gainInput.value} %`;
+      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
     });
 
-    carrierValue.textContent = `${carrierInput.value} Hz`;
-    modFreqValue.textContent = `${modFreqInput.value} Hz`;
-    indexValue.textContent = `${indexInput.value} —`;
+    carrierValue.textContent = `${formatParamValueFreq(carrierInput.value)} Hz`;
+    modFreqValue.textContent = `${formatParamValueFreq(modFreqInput.value)} Hz`;
+    indexValue.textContent = `${formatParamValue(indexInput.value)} —`;
     gainValue.textContent = '30 %';
 
     return {

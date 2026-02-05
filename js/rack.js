@@ -10,7 +10,7 @@ import { removeConnectionsBySlot, redrawCables, createInputJack } from './cables
 
 /** @typedef {{ typeId: string, instanceId: string, kind: ModuleKind, element: HTMLElement, instance: Object }} RackSlot */
 
-/** @typedef {{ rowIndex: number, name: string, source: RackSlot|null, chain: RackSlot[] }} RackRow */
+/** @typedef {{ rowIndex: number, name: string, source: RackSlot|null, chain: RackSlot[], pan: number, mute: boolean, solo: boolean }} RackRow */
 
 /** @type {Map<string, import('./modules/base.js').ModuleFactory>} */
 const moduleRegistry = new Map();
@@ -27,6 +27,9 @@ let onChainChange = null;
 /** @type {((rowIndex: number, panValue: number) => void)|null} */
 let onPanChange = null;
 
+/** @type {(() => void)|null} */
+let onMuteSoloChange = null;
+
 /** @type {number} */
 let instanceCounter = 0;
 
@@ -40,9 +43,50 @@ export function setOnPanChange(fn) {
   onPanChange = fn;
 }
 
+/** ミュート/ソロ変更時のコールバックを登録（全行のゲイン更新用） */
+export function setOnMuteSoloChange(fn) {
+  onMuteSoloChange = fn;
+}
+
 function nextInstanceId(typeId) {
   instanceCounter += 1;
   return `${typeId}-${instanceCounter}`;
+}
+
+/** スライダーを非表示にし、値の割合を表示する小さなバーのみにする */
+function updateParamBarFill(input, fillEl) {
+  const min = parseFloat(input.min) || 0;
+  const max = parseFloat(input.max) || 100;
+  const val = parseFloat(input.value) || min;
+  const range = max - min;
+  const pct = range <= 0 ? 0 : Math.max(0, Math.min(100, ((val - min) / range) * 100));
+  fillEl.style.width = `${pct}%`;
+}
+
+function replaceSlidersWithBars(moduleElement) {
+  const inputs = moduleElement.querySelectorAll('input[type="range"].synth-module__slider');
+  inputs.forEach((input) => {
+    const min = parseFloat(input.min) || 0;
+    const max = parseFloat(input.max) || 100;
+    const val = parseFloat(input.value) || min;
+    const range = max - min;
+    const pct = range <= 0 ? 0 : Math.max(0, Math.min(100, ((val - min) / range) * 100));
+
+    const bar = document.createElement('div');
+    bar.className = 'synth-module__param-bar';
+    const fill = document.createElement('div');
+    fill.className = 'synth-module__param-bar__fill';
+    fill.style.width = `${pct}%`;
+    bar.appendChild(fill);
+
+    input.parentNode.insertBefore(bar, input.nextSibling);
+    input.classList.add('synth-module__slider--hidden');
+
+    input.addEventListener('input', () => updateParamBarFill(input, fill));
+
+    const wrap = input.closest('.synth-module__step-slider-wrap');
+    if (wrap) wrap.classList.add('synth-module__param-bar-wrap--step');
+  });
 }
 
 function createSlotWrapper(slot, factory) {
@@ -63,6 +107,7 @@ function createSlotWrapper(slot, factory) {
     wrapper.appendChild(handle);
   }
   wrapper.appendChild(slot.instance.element);
+  replaceSlidersWithBars(slot.instance.element);
   return wrapper;
 }
 
@@ -107,7 +152,7 @@ export function addSourceRow(typeId) {
   bindSlotEvents(slot);
 
   const rowNum = rows.length + 1;
-  const row = { rowIndex: rows.length, name: `Row ${rowNum}`, source: slot, chain: [], pan: 0 };
+  const row = { rowIndex: rows.length, name: `Row ${rowNum}`, source: slot, chain: [], pan: 0, mute: false, solo: false };
   rows.push(row);
 
   const rowEl = document.createElement('div');
@@ -132,6 +177,35 @@ export function addSourceRow(typeId) {
   const panCol = document.createElement('div');
   panCol.className = 'synth-rack__col synth-rack__col--pan';
   panCol.title = 'Pan (L–R). Drop modulator for CV.';
+
+  const muteSoloWrap = document.createElement('div');
+  muteSoloWrap.className = 'synth-rack__mute-solo-wrap';
+  const muteBtn = document.createElement('button');
+  muteBtn.type = 'button';
+  muteBtn.className = 'synth-rack__mute';
+  muteBtn.textContent = 'M';
+  muteBtn.title = 'Mute';
+  muteBtn.setAttribute('aria-label', 'Mute row');
+  muteBtn.addEventListener('click', () => {
+    row.mute = !row.mute;
+    muteBtn.classList.toggle('synth-rack__mute--on', row.mute);
+    if (onMuteSoloChange) onMuteSoloChange();
+  });
+  const soloBtn = document.createElement('button');
+  soloBtn.type = 'button';
+  soloBtn.className = 'synth-rack__solo';
+  soloBtn.textContent = 'S';
+  soloBtn.title = 'Solo';
+  soloBtn.setAttribute('aria-label', 'Solo row');
+  soloBtn.addEventListener('click', () => {
+    row.solo = !row.solo;
+    soloBtn.classList.toggle('synth-rack__solo--on', row.solo);
+    if (onMuteSoloChange) onMuteSoloChange();
+  });
+  muteSoloWrap.appendChild(muteBtn);
+  muteSoloWrap.appendChild(soloBtn);
+  panCol.appendChild(muteSoloWrap);
+
   const panSlot = document.createElement('div');
   panSlot.className = 'synth-rack__slot synth-rack__slot--pan';
   panSlot.dataset.instanceId = 'pan';
@@ -162,13 +236,18 @@ export function addSourceRow(typeId) {
 
   const chainCol = document.createElement('div');
   chainCol.className = 'synth-rack__col synth-rack__col--chain';
+  chainCol.addEventListener('scroll', () => redrawCables());
   rowEl.appendChild(chainCol);
 
   row._rowEl = rowEl;
   row._chainCol = chainCol;
   row._nameInput = nameInput;
+  row._muteBtn = muteBtn;
+  row._soloBtn = soloBtn;
 
-  rackContainerEl.appendChild(rowEl);
+  const cablesLayer = rackContainerEl.querySelector('.synth-cables');
+  if (cablesLayer) rackContainerEl.insertBefore(rowEl, cablesLayer);
+  else rackContainerEl.appendChild(rowEl);
   return { rowIndex: row.rowIndex, slot };
 }
 
@@ -327,8 +406,25 @@ export function setRowPan(rowIndex, value) {
   if (row._panSlider) row._panSlider.value = String(Math.round(row.pan * 50 + 50));
 }
 
-/** 行・スロットインデックスから instanceId を取得（0=source, 1=chain[0], ..., -1=pan） */
+/** 行のミュートを設定（読み込み時など） */
+export function setRowMute(rowIndex, muted) {
+  const row = rows[rowIndex];
+  if (!row) return;
+  row.mute = !!muted;
+  if (row._muteBtn) row._muteBtn.classList.toggle('synth-rack__mute--on', row.mute);
+}
+
+/** 行のソロを設定（読み込み時など） */
+export function setRowSolo(rowIndex, soloed) {
+  const row = rows[rowIndex];
+  if (!row) return;
+  row.solo = !!soloed;
+  if (row._soloBtn) row._soloBtn.classList.toggle('synth-rack__solo--on', row.solo);
+}
+
+/** 行・スロットインデックスから instanceId を取得（0=source, 1=chain[0], ..., -1=pan）。rowIndex=-1, slotIndex=-1 はマスター Sync。 */
 export function getSlotInstanceId(rowIndex, slotIndex) {
+  if (rowIndex === -1 && slotIndex === -1) return 'master';
   const row = rows[rowIndex];
   if (!row) return null;
   if (slotIndex === -1) return 'pan';
@@ -337,8 +433,9 @@ export function getSlotInstanceId(rowIndex, slotIndex) {
   return ch?.instanceId ?? null;
 }
 
-/** instanceId からその行内のスロットインデックスを取得（0=source, 1=chain[0], ..., -1=pan） */
+/** instanceId からその行内のスロットインデックスを取得（0=source, 1=chain[0], ..., -1=pan）。rowIndex=-1 で instanceId='master' は -1。 */
 export function getSlotIndex(rowIndex, instanceId) {
+  if (rowIndex === -1 && instanceId === 'master') return -1;
   const row = rows[rowIndex];
   if (!row) return -2;
   if (instanceId === 'pan') return -1;

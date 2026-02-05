@@ -35,5 +35,23 @@
  * @property {function(string): { element: HTMLElement, getAudioInput?: function, getAudioOutput?: function, destroy?: function }} create - (instanceId) => instance
  */
 
+/**
+ * パラメータ表示用: 小数点以下切り捨てで整数表示
+ * @param {string|number} v
+ * @returns {string}
+ */
+export function formatParamValue(v) {
+  return String(Math.floor(Number(v)));
+}
+
+/**
+ * 周波数表示用: 小数点以下切り捨て（Hz 表示用）
+ * @param {string|number} v
+ * @returns {string}
+ */
+export function formatParamValueFreq(v) {
+  return String(Math.floor(Number(v)));
+}
+
 export const ModuleMeta = {};
 export const ModuleFactory = {};
