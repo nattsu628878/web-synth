@@ -99,6 +99,9 @@ export const noiseModule = {
       getAudioOutput() {
         return gainNode;
       },
+      reconnectWaveformViz() {
+        viz.reconnect();
+      },
       getModulatableParams() {
         return [
           { id: 'gain', name: 'Gain', param: gainNode.gain },

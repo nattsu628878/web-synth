@@ -243,6 +243,9 @@ export const wavetableModule = {
       getAudioOutput() {
         return gainNode;
       },
+      reconnectWaveformViz() {
+        viz.reconnect();
+      },
       getModulatableParams() {
         return [
           { id: 'morph', name: 'Morph', param: morphDrive.gain },

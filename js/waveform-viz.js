@@ -35,6 +35,15 @@ export function attachWaveformViz(container, audioNode) {
     dataArray = new Uint8Array(analyser.fftSize);
   }
 
+  /** 接続が外れたときに呼ぶ（connectRowToMaster で source.disconnect() した後など） */
+  function reconnect() {
+    if (audioNode && analyser) {
+      try {
+        audioNode.connect(analyser);
+      } catch (_) {}
+    }
+  }
+
   function draw() {
     const rect = canvas.getBoundingClientRect();
     const w = rect.width;
@@ -90,5 +99,6 @@ export function attachWaveformViz(container, audioNode) {
       }
       wrapper.remove();
     },
+    reconnect,
   };
 }

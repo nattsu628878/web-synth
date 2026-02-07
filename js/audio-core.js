@@ -135,3 +135,67 @@ export function getCurrentTime() {
   const ctx = getAudioContext();
   return ctx ? ctx.currentTime : 0;
 }
+
+/** @type {Promise<void>|null} */
+let lpfWorkletPromise = null;
+/** @type {Promise<void>|null} */
+let hpfWorkletPromise = null;
+/** @type {Promise<void>|null} */
+let pwmWorkletPromise = null;
+
+/** 環境に依存しない Worklet スクリプトの絶対 URL を返す */
+function getWorkletUrl(relativePath) {
+  if (typeof document !== 'undefined' && document.baseURI) {
+    return new URL(relativePath, document.baseURI).href;
+  }
+  if (typeof window !== 'undefined' && window.location?.href) {
+    return new URL(relativePath, window.location.href).href;
+  }
+  return relativePath;
+}
+
+/**
+ * 1次CR LPF 用 AudioWorklet を読み込む（LPF モジュール追加前に呼ぶ）
+ * @returns {Promise<void>}
+ */
+export function ensureLpfWorklet() {
+  const ctx = getAudioContext();
+  if (!ctx) return Promise.reject(new Error('AudioContext がありません'));
+  if (lpfWorkletPromise) return lpfWorkletPromise;
+  lpfWorkletPromise = Promise.all([
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/one-pole-lpf-processor.js')),
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/two-pole-lpf-processor.js')),
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/four-pole-lpf-processor.js')),
+  ]).then(() => {});
+  return lpfWorkletPromise;
+}
+
+/**
+ * 1次CR / 2次CR / 4次CR HPF 用 AudioWorklet を読み込む（HPF モジュール追加前に呼ぶ）
+ * @returns {Promise<void>}
+ */
+export function ensureHpfWorklet() {
+  const ctx = getAudioContext();
+  if (!ctx) return Promise.reject(new Error('AudioContext がありません'));
+  if (hpfWorkletPromise) return hpfWorkletPromise;
+  hpfWorkletPromise = Promise.all([
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/one-pole-hpf-processor.js')),
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/two-pole-hpf-processor.js')),
+    ctx.audioWorklet.addModule(getWorkletUrl('js/processors/four-pole-hpf-processor.js')),
+  ]).then(() => {});
+  return hpfWorkletPromise;
+}
+
+/**
+ * PWM オシレーター用 AudioWorklet を読み込む（PWM モジュール追加前に呼ぶ）
+ * @returns {Promise<void>}
+ */
+export function ensurePwmWorklet() {
+  const ctx = getAudioContext();
+  if (!ctx) return Promise.reject(new Error('AudioContext がありません'));
+  if (pwmWorkletPromise) return pwmWorkletPromise;
+  pwmWorkletPromise = ctx.audioWorklet
+    .addModule(getWorkletUrl('js/processors/pwm-oscillator-processor.js'))
+    .then(() => {});
+  return pwmWorkletPromise;
+}

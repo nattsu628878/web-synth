@@ -155,6 +155,9 @@ export const waveformGeneratorModule = {
       getAudioOutput() {
         return gainNode;
       },
+      reconnectWaveformViz() {
+        viz.reconnect();
+      },
       getModulatableParams() {
         return [
           { id: 'frequency', name: 'Freq', param: osc.frequency, modulationScale: 100 },

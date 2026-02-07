@@ -7,6 +7,8 @@
 import {
   registerModule,
   getRegisteredModules,
+  getModuleFactory,
+  replaceSlidersWithBars,
   addSourceRow,
   addEffectToRow,
   addModulatorToRow,
@@ -29,7 +31,13 @@ import { waveformGeneratorModule } from './modules/source/waveform-generator.js'
 import { fmSynthModule } from './modules/source/fm-synth.js';
 import { wavetableModule } from './modules/source/wavetable.js';
 import { noiseModule } from './modules/source/noise.js';
+import { pwmModule } from './modules/source/pwm.js';
 import { reverbModule } from './modules/effect/reverb.js';
+import { eq8Module } from './modules/effect/eq8.js';
+import { lpfModule } from './modules/effect/lpf.js';
+import { hpfModule } from './modules/effect/hpf.js';
+import { lpfResModule } from './modules/effect/lpf-res.js';
+import { hpfResModule } from './modules/effect/hpf-res.js';
 import { lfoModule } from './modules/modulator/lfo.js';
 import { envelopeModule } from './modules/modulator/envelope.js';
 import { sequencer8Module, sequencer16Module, sequencer64Module } from './modules/modulator/sequencer.js';
@@ -41,7 +49,13 @@ registerModule(waveformGeneratorModule);
 registerModule(fmSynthModule);
 registerModule(wavetableModule);
 registerModule(noiseModule);
+registerModule(pwmModule);
 registerModule(reverbModule);
+registerModule(eq8Module);
+registerModule(lpfModule);
+registerModule(hpfModule);
+registerModule(lpfResModule);
+registerModule(hpfResModule);
 registerModule(lfoModule);
 registerModule(envelopeModule);
 registerModule(sequencer8Module);
@@ -60,8 +74,65 @@ const rowSelectForEffect = document.getElementById('rowSelectForEffect');
 const rowSelectForModulator = document.getElementById('rowSelectForModulator');
 const saveProjectBtn = document.getElementById('saveProjectBtn');
 const loadProjectInput = document.getElementById('loadProjectInput');
+const modulePreviewInner = document.getElementById('modulePreviewInner');
+const modulePreview = document.getElementById('modulePreview');
 
 setRackContainer(rackContainer);
+
+// ---------- モジュールプレビュー（ピッカー項目ホバーで右側に拡大縮小表示） ----------
+function showModulePreview(typeId) {
+  if (!modulePreviewInner || !modulePreview) return;
+  const factory = getModuleFactory(typeId);
+  if (!factory) return;
+  try {
+    const instance = factory.create(`preview-${typeId}-${Date.now()}`);
+    if (!instance?.element) return;
+    const clone = instance.element.cloneNode(true);
+    clone.classList.add('synth-module--preview');
+    replaceSlidersWithBars(clone);
+    modulePreviewInner.innerHTML = '';
+    modulePreviewInner.appendChild(clone);
+    modulePreview.classList.add('module-preview--active');
+    modulePreviewInner.style.width = '';
+    modulePreviewInner.style.height = '';
+    modulePreviewInner.style.transform = '';
+    requestAnimationFrame(() => {
+      const boxW = Math.max(0, modulePreview.clientWidth - 16);
+      const boxH = Math.max(0, modulePreview.clientHeight - 16);
+      const w = clone.offsetWidth || 1;
+      const h = clone.offsetHeight || 1;
+      const scale = (boxW > 0 && boxH > 0)
+        ? Math.min(boxW / w, boxH / h, 2)
+        : 1;
+      modulePreviewInner.style.width = `${w}px`;
+      modulePreviewInner.style.height = `${h}px`;
+      modulePreviewInner.style.transform = `scale(${scale})`;
+    });
+  } catch (_) {
+    modulePreviewInner.innerHTML = '';
+    modulePreview.classList.remove('module-preview--active');
+  }
+}
+
+function clearModulePreview() {
+  if (modulePreview) modulePreview.classList.remove('module-preview--active');
+  if (modulePreviewInner) {
+    modulePreviewInner.innerHTML = '';
+    modulePreviewInner.style.width = '';
+    modulePreviewInner.style.height = '';
+    modulePreviewInner.style.transform = '';
+  }
+}
+
+function bindModulePreviewToPicker(container) {
+  if (!container) return;
+  container.querySelectorAll('.synth-picker__item').forEach((btn) => {
+    const typeId = btn.dataset.typeId;
+    if (!typeId) return;
+    btn.addEventListener('mouseenter', () => showModulePreview(typeId));
+    btn.addEventListener('mouseleave', () => clearModulePreview());
+  });
+}
 
 // ---------- 数値表示ホバー＋スクロールで無段階変更 ----------
 // ラック内の .synth-module__value にホバーしながらホイールで対応スライダーを無段階変更
@@ -352,8 +423,8 @@ if (masterSyncOutContainer) {
 
 const masterVolumeSlider = document.getElementById('masterVolume');
 const masterVolumeValue = document.getElementById('masterVolumeValue');
-const masterMeterSegments = document.getElementById('masterMeterSegments');
-const masterMeterValue = document.getElementById('masterMeterValue');
+const masterMeterSegmentsL = document.getElementById('masterMeterSegmentsL');
+const masterMeterSegmentsR = document.getElementById('masterMeterSegmentsR');
 const masterWaveformCanvas = document.getElementById('masterWaveformCanvas');
 const masterSpectrumCanvas = document.getElementById('masterSpectrumCanvas');
 const masterSpectrogramCanvas = document.getElementById('masterSpectrogramCanvas');
@@ -461,25 +532,39 @@ function updateMeterAndWaveform() {
     analyserL.getByteTimeDomainData(analyserLDataArray);
     analyserR.getByteTimeDomainData(analyserRDataArray);
   }
-  if (masterMeterSegments || masterMeterValue) {
-    let sum = 0;
-    for (let i = 0; i < analyserDataArray.length; i++) {
-      const n = (analyserDataArray[i] - 128) / 128;
-      sum += n * n;
-    }
-    const rms = Math.sqrt(sum / analyserDataArray.length);
+  const segmentCount = 24;
+  const dbMin = -42;
+  const dbMax = 0;
+  function rmsToDbAndActive(rms) {
     const db = rms <= 0 ? -Infinity : 20 * Math.log10(Math.min(1, rms));
     const dbText = db === -Infinity || db < -60 ? '-∞' : Math.round(db);
-    const segmentCount = 12;
-    const dbMin = -42;
-    const dbMax = 0;
     const normalized = db === -Infinity || db < dbMin ? 0 : Math.min(1, (db - dbMin) / (dbMax - dbMin));
     const activeCount = Math.min(segmentCount, Math.round(normalized * segmentCount));
-    if (masterMeterSegments) {
-      const segments = masterMeterSegments.querySelectorAll('.synth-master-meter__segment');
-      segments.forEach((seg, i) => seg.classList.toggle('synth-master-meter__segment--on', i < activeCount));
+    return { dbText, activeCount };
+  }
+  if (analyserLDataArray && analyserRDataArray && (masterMeterSegmentsL || masterMeterSegmentsR)) {
+    let sumL = 0;
+    let sumR = 0;
+    for (let i = 0; i < analyserLDataArray.length; i++) {
+      const nL = (analyserLDataArray[i] - 128) / 128;
+      sumL += nL * nL;
     }
-    if (masterMeterValue) masterMeterValue.textContent = `${dbText} dB`;
+    for (let i = 0; i < analyserRDataArray.length; i++) {
+      const nR = (analyserRDataArray[i] - 128) / 128;
+      sumR += nR * nR;
+    }
+    const rmsL = Math.sqrt(sumL / analyserLDataArray.length);
+    const rmsR = Math.sqrt(sumR / analyserRDataArray.length);
+    const { activeCount: activeCountL } = rmsToDbAndActive(rmsL);
+    const { activeCount: activeCountR } = rmsToDbAndActive(rmsR);
+    if (masterMeterSegmentsL) {
+      const segments = masterMeterSegmentsL.querySelectorAll('.synth-master-meter__segment');
+      segments.forEach((seg, i) => seg.classList.toggle('synth-master-meter__segment--on', i < activeCountL));
+    }
+    if (masterMeterSegmentsR) {
+      const segments = masterMeterSegmentsR.querySelectorAll('.synth-master-meter__segment');
+      segments.forEach((seg, i) => seg.classList.toggle('synth-master-meter__segment--on', i < activeCountR));
+    }
   }
   if (masterWaveformCanvas && analyserDataArray) {
     const wrap = masterWaveformCanvas.parentElement;
@@ -636,25 +721,55 @@ async function connectRowToMaster(rowIndex) {
     rowTailInput.delete(rowIndex);
     rowGainNodes.delete(rowIndex);
   }
-  let tail = row.source.instance.getAudioOutput();
-  for (const slot of row.chain) {
-    if (slot.kind === 'effect' && slot.instance.getAudioInput && slot.instance.getAudioOutput) {
-      tail.connect(slot.instance.getAudioInput());
-      tail = slot.instance.getAudioOutput();
+  try {
+    // 既存チェーンがあるときだけ、source と各 effect の「出力」を切断してから繋ぎ直す。
+    // ※ effect の getAudioInput().disconnect() は呼ばない。input は内部で filter 等に繋がっており、
+    //    ここで disconnect するとエフェクト内部のルーティングが壊れて音が出なくなる。
+    if (oldPanner) {
+      try {
+        row.source.instance.getAudioOutput().disconnect();
+      } catch (_) {}
+      for (const slot of row.chain) {
+        if (slot.kind === 'effect' && slot.instance.getAudioOutput) {
+          try {
+            slot.instance.getAudioOutput().disconnect();
+          } catch (_) {}
+        }
+      }
+    }
+    let tail = row.source.instance.getAudioOutput();
+    for (const slot of row.chain) {
+      if (slot.kind === 'effect' && slot.instance.getAudioInput && slot.instance.getAudioOutput) {
+        tail.connect(slot.instance.getAudioInput());
+        tail = slot.instance.getAudioOutput();
+      }
+    }
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = computeRowGain(rowIndex);
+    tail.connect(gainNode);
+    rowGainNodes.set(rowIndex, gainNode);
+
+    const panner = ctx.createStereoPanner();
+    panner.pan.value = row.pan ?? 0;
+    gainNode.connect(panner);
+    panner.connect(master);
+    rowTailToMaster.set(rowIndex, panner);
+    rowTailInput.set(rowIndex, tail);
+    applyPanConnectionsForRow(rowIndex);
+    // oldPanner があったときは source.disconnect() で波形用 Analyser も外れているので再接続する
+    if (oldPanner && row.source?.instance?.reconnectWaveformViz) row.source.instance.reconnectWaveformViz();
+  } catch (_) {
+    if (oldPanner && oldTailInput && oldGain) {
+      try {
+        oldTailInput.connect(oldGain);
+        oldGain.connect(oldPanner);
+        oldPanner.connect(master);
+        rowTailToMaster.set(rowIndex, oldPanner);
+        rowTailInput.set(rowIndex, oldTailInput);
+        rowGainNodes.set(rowIndex, oldGain);
+      } catch (_) {}
     }
   }
-  const gainNode = ctx.createGain();
-  gainNode.gain.value = computeRowGain(rowIndex);
-  tail.connect(gainNode);
-  rowGainNodes.set(rowIndex, gainNode);
-
-  const panner = ctx.createStereoPanner();
-  panner.pan.value = row.pan ?? 0;
-  gainNode.connect(panner);
-  panner.connect(master);
-  rowTailToMaster.set(rowIndex, panner);
-  rowTailInput.set(rowIndex, tail);
-  applyPanConnectionsForRow(rowIndex);
 }
 
 /** その行の Pan へのケーブル接続をパンナーに適用（接続後に呼ぶ） */
@@ -679,7 +794,7 @@ function updateRowSelects() {
   const rows = getRows();
   const prevEffectRow = rowSelectForEffect?.value ?? '0';
   const prevModulatorRow = rowSelectForModulator?.value ?? '0';
-  const options = rows.map((row, i) => `<option value="${i}">${escapeHtml(row.name || `Row ${i + 1}`)}</option>`).join('');
+  const options = rows.map((row, i) => `<option value="${i}">${i + 1}. ${escapeHtml(row.name || `Row ${i + 1}`)}</option>`).join('');
   const fallback = '<option value="0">(Add a row)</option>';
   if (rowSelectForEffect) {
     rowSelectForEffect.innerHTML = options || fallback;
@@ -766,7 +881,7 @@ async function loadProject(file) {
   for (let ri = 0; ri < data.rows.length; ri++) {
     const r = data.rows[ri];
     if (!r.source?.typeId) continue;
-    const result = addSourceRow(r.source.typeId);
+    const result = await addSourceRow(r.source.typeId);
     if (!result) continue;
     setRowName(result.rowIndex, r.name || `Row ${ri + 1}`);
     setRowPan(result.rowIndex, r.pan ?? 0);
@@ -782,7 +897,7 @@ async function loadProject(file) {
       const factory = getRegisteredModules().find((m) => m.id === typeId);
       if (!factory) continue;
       if (factory.kind === 'effect') {
-        const s = addEffectToRow(result.rowIndex, typeId);
+        const s = await addEffectToRow(result.rowIndex, typeId);
         if (s) await connectRowToMaster(result.rowIndex);
       } else if (factory.kind === 'modulator') {
         addModulatorToRow(result.rowIndex, typeId);
@@ -829,7 +944,7 @@ function renderSourcePicker() {
     btn.textContent = m.name;
     btn.dataset.typeId = m.id;
     btn.addEventListener('click', async () => {
-      const result = addSourceRow(m.id);
+      const result = await addSourceRow(m.id);
       if (!result) return;
       const { rowIndex, slot } = result;
       if (slot.instance.getAudioOutput) {
@@ -857,10 +972,9 @@ function renderEffectPicker() {
       const rowIndex = parseInt(rowSelectForEffect?.value ?? '0', 10);
       const rows = getRows();
       if (rowIndex < 0 || rowIndex >= rows.length) return;
-      const slot = addEffectToRow(rowIndex, m.id);
+      const slot = await addEffectToRow(rowIndex, m.id);
       if (!slot) return;
-      await resumeContext();
-      connectRowToMaster(rowIndex);
+      await connectRowToMaster(rowIndex);
       updateRowSelects();
     });
     pickerEffects.appendChild(btn);
@@ -896,6 +1010,7 @@ function renderModulePickers() {
   renderEffectPicker();
   renderModulatorPicker();
   updateRowSelects();
+  bindModulePreviewToPicker(document.getElementById('modulePicker'));
 }
 renderModulePickers();
 

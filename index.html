@@ -27,26 +27,38 @@
   </header>
 
   <div class="container">
-    <div class="synth-picker" id="modulePicker">
-      <div class="synth-picker__group">
-        <span class="synth-picker__label">Sources (new row)</span>
-        <div class="synth-picker__list synth-picker__list--source" id="pickerSources"></div>
-      </div>
-      <div class="synth-picker__group">
-        <span class="synth-picker__label">Effects</span>
-        <div class="synth-picker__row-wrap">
-          <label class="synth-picker__row-label" for="rowSelectForEffect">Row</label>
-          <select class="synth-picker__row-select" id="rowSelectForEffect" aria-label="Target row"></select>
+    <div class="picker-and-preview">
+      <div class="synth-picker" id="modulePicker">
+        <div class="synth-picker__group">
+          <span class="synth-picker__label">Sources (new row)</span>
+          <div class="synth-picker__list-scroll">
+            <div class="synth-picker__list synth-picker__list--source" id="pickerSources"></div>
+          </div>
         </div>
-        <div class="synth-picker__list synth-picker__list--effect" id="pickerEffects"></div>
-      </div>
-      <div class="synth-picker__group">
-        <span class="synth-picker__label">Modulators</span>
-        <div class="synth-picker__row-wrap">
-          <label class="synth-picker__row-label" for="rowSelectForModulator">Row</label>
-          <select class="synth-picker__row-select" id="rowSelectForModulator" aria-label="Target row"></select>
+        <div class="synth-picker__group">
+          <span class="synth-picker__label">Effects</span>
+          <div class="synth-picker__row-choice">
+            <span class="synth-picker__row-label">Add to row</span>
+            <select class="synth-picker__row-select" id="rowSelectForEffect" aria-label="Target row for effect"></select>
+          </div>
+          <div class="synth-picker__list-scroll">
+            <div class="synth-picker__list synth-picker__list--effect" id="pickerEffects"></div>
+          </div>
         </div>
-        <div class="synth-picker__list synth-picker__list--modulator" id="pickerModulators"></div>
+        <div class="synth-picker__group">
+          <span class="synth-picker__label">Modulators</span>
+          <div class="synth-picker__row-choice">
+            <span class="synth-picker__row-label">Add to row</span>
+            <select class="synth-picker__row-select" id="rowSelectForModulator" aria-label="Target row for modulator"></select>
+          </div>
+          <div class="synth-picker__list-scroll">
+            <div class="synth-picker__list synth-picker__list--modulator" id="pickerModulators"></div>
+          </div>
+        </div>
+      </div>
+      <div class="module-preview" id="modulePreview" aria-live="polite" aria-label="Module preview">
+        <span class="module-preview__placeholder" id="modulePreviewPlaceholder">Hover a module to preview</span>
+        <div class="module-preview__inner" id="modulePreviewInner"></div>
       </div>
     </div>
 
@@ -80,23 +92,28 @@
           <input type="range" class="synth-master-volume__slider synth-master-volume__slider--hidden" id="masterVolume" min="0" max="100" value="25" title="Master volume" aria-hidden="true">
         </div>
         <div class="synth-master-meter">
-          <span class="synth-master-meter__label">Level</span>
-          <div class="synth-master-meter__digital" role="meter" aria-label="Output level">
-            <div class="synth-master-meter__segments" id="masterMeterSegments" aria-hidden="true">
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
-              <div class="synth-master-meter__segment"></div>
+          <div class="synth-master-meter__label-wrap">
+            <span class="synth-master-meter__label">Level</span>
+          </div>
+          <div class="synth-master-meter__container" role="group" aria-label="Output level L R">
+            <div class="synth-master-meter__scale" aria-hidden="true">
+              <span class="synth-master-meter__tick" style="--pos: 0">0</span>
+              <span class="synth-master-meter__tick" style="--pos: 7.1">-3</span>
+              <span class="synth-master-meter__tick" style="--pos: 14.3">-6</span>
+              <span class="synth-master-meter__tick" style="--pos: 21.4">-9</span>
+              <span class="synth-master-meter__tick" style="--pos: 28.6">-12</span>
+              <span class="synth-master-meter__tick" style="--pos: 42.9">-18</span>
+              <span class="synth-master-meter__tick" style="--pos: 57.1">-24</span>
+              <span class="synth-master-meter__tick" style="--pos: 71.4">-30</span>
+              <span class="synth-master-meter__tick" style="--pos: 85.7">-36</span>
+              <span class="synth-master-meter__tick" style="--pos: 100">-42</span>
             </div>
-            <span class="synth-master-meter__value" id="masterMeterValue">-∞ dB</span>
+            <div class="synth-master-meter__segments" id="masterMeterSegmentsL" role="meter" aria-label="Left level" aria-hidden="true">
+                <div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div>
+            </div>
+            <div class="synth-master-meter__segments" id="masterMeterSegmentsR" role="meter" aria-label="Right level" aria-hidden="true">
+                <div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div><div class="synth-master-meter__segment"></div>
+            </div>
           </div>
         </div>
         <div class="synth-master-waveform">

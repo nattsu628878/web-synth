@@ -26,7 +26,7 @@
   --color-modulator: #8959a8;
   /* ケーブル・ジャック：接続種別ごとの色（させるところと対応） */
   --cable-modulation: #628878;
-  --cable-pitch: #2e6b7c;
+  --cable-pitch: #628878;
   --cable-gate: #b8860b;
   --cable-sync: #721721;
 }
@@ -51,7 +51,7 @@ html.dark-mode {
   --color-effect: #6b9bd1;
   --color-modulator: #a87cc0;
   --cable-modulation: #7aa08a;
-  --cable-pitch: #4a9cad;
+  --cable-pitch: #7aa08a;
   --cable-gate: #d4a84b;
   --cable-sync: #a04040;
 }
@@ -233,10 +233,9 @@ p { line-height: 1.7; color: var(--text-secondary); margin: 0.5em 0; }
 
 .synth-picker__group {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem;
-  padding-bottom: 0.25rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding-bottom: 0.5rem;
   border-bottom: 1px solid var(--border-light);
 }
 
@@ -249,32 +248,36 @@ p { line-height: 1.7; color: var(--text-secondary); margin: 0.5em 0; }
   font-size: 0.8rem;
   font-weight: 600;
   color: var(--text-secondary);
-  min-width: 7rem;
 }
 
-.synth-picker__row-wrap {
+.synth-picker__row-choice {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.2rem;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .synth-picker__row-label {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  white-space: nowrap;
 }
 
 .synth-picker__row-select {
-  padding: 0.2rem 0.4rem;
+  padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
   border: 1px solid var(--border-color);
   border-radius: 4px;
   background: var(--bg-primary);
   color: var(--text-primary);
   cursor: pointer;
-  min-width: 4rem;
+  min-width: 6rem;
+  max-width: 12rem;
+}
+
+.synth-picker__list-scroll {
+  max-height: 6.5rem;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .synth-picker__list {
@@ -310,6 +313,67 @@ p { line-height: 1.7; color: var(--text-secondary); margin: 0.5em 0; }
 .synth-picker__item--effect:hover { background: rgba(66, 113, 174, 0.12); }
 .synth-picker__item--modulator { border-color: var(--color-modulator); color: var(--color-modulator); }
 .synth-picker__item--modulator:hover { background: rgba(160, 100, 160, 0.12); }
+
+/* モジュール一覧の右側：ホバー中のモジュールプレビュー（マスターの上） */
+/* 高さ固定：左のモジュール選択の最低限の高さに揃え、モジュール切替で高さが変わらないようにする */
+.picker-and-preview {
+  --picker-min-height: 300px;
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+  height: var(--picker-min-height);
+  min-height: var(--picker-min-height);
+}
+
+.picker-and-preview .synth-picker {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin-bottom: 0;
+  overflow-y: auto;
+}
+
+.module-preview {
+  flex-shrink: 0;
+  align-self: stretch;
+  width: 320px;
+  min-width: 280px;
+  min-height: var(--picker-min-height);
+  height: 100%;
+  padding: 0.5rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.module-preview__placeholder {
+  position: absolute;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  pointer-events: none;
+}
+
+.module-preview__inner {
+  transform-origin: center center;
+  pointer-events: none;
+  position: relative;
+  z-index: 1;
+}
+
+.module-preview.module-preview--active .module-preview__placeholder {
+  visibility: hidden;
+}
+
+.module-preview__inner .synth-module {
+  pointer-events: none;
+}
 
 /* ---------- ラックエリア（ラック＋右側マスター）窓幅に収める ---------- */
 .synth-rack-area {
@@ -539,35 +603,43 @@ html.dark-mode .synth-rack__col--chain {
   overflow-y: visible;
 }
 
-.synth-rack__slot-handle {
-  padding: 0.25rem 0.5rem;
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-light);
-  border-radius: 6px 6px 0 0;
-  cursor: grab;
-  user-select: none;
+.synth-rack__slot-arrows {
   display: flex;
   align-items: center;
   justify-content: center;
-  letter-spacing: 0.1em;
+  gap: 0.1rem;
+  padding: 0.15rem 0.2rem;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-light);
+  border-radius: 6px 6px 0 0;
+  flex-shrink: 0;
 }
 
-.synth-rack__slot-handle:active {
-  cursor: grabbing;
+.synth-rack__slot-arrow {
+  padding: 0.1rem 0.2rem;
+  font-size: 0.55rem;
+  line-height: 1;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  min-width: 1.2rem;
 }
 
-.synth-rack__slot--dragging {
-  opacity: 0.6;
+.synth-rack__slot-arrow:hover:not(:disabled) {
+  color: var(--accent);
+  background: var(--accent-light);
 }
 
-.synth-rack__slot--drag-over {
-  box-shadow: 0 0 0 2px var(--accent);
-  border-radius: 8px;
+.synth-rack__slot-arrow--disabled,
+.synth-rack__slot-arrow:disabled {
+  opacity: 0.35;
+  cursor: default;
+  pointer-events: none;
 }
 
-/* スロット内のモジュール本体（ハンドルの下） */
+/* スロット内のモジュール本体（矢印の下） */
 .synth-rack__slot .synth-module {
   border-radius: 0 0 8px 8px;
 }
@@ -747,8 +819,9 @@ html.dark-mode .synth-master-sync__lamp--on {
 .synth-master-meter {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
+
 
 .synth-master-meter__label {
   font-size: 0.65rem;
@@ -758,25 +831,49 @@ html.dark-mode .synth-master-sync__lamp--on {
   letter-spacing: 0.03em;
 }
 
-.synth-master-meter__digital {
-  min-height: 40px;
-  padding: 0.25rem 0.35rem;
+.synth-master-meter__container {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  align-items: center;
+  min-height: 128px;
+  padding: 0.2rem 0.25rem;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
   border-radius: 4px;
-  display: flex;
-  align-items: stretch;
-  gap: 0.35rem;
+}
+
+.synth-master-meter__scale {
+  position: relative;
+  flex-shrink: 0;
+  width: 1.1rem;
+  min-height: 100%;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+  font-size: 6px;
   font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.synth-master-meter__tick {
+  position: absolute;
+  left: 0;
+  /* ランプの padding 内の内容エリアに合わせて配置（0〜100% を padding 除いた高さにマッピング） */
+  top: calc(0.35rem + (var(--pos) / 100) * (100% - 0.7rem));
+  transform: translateY(-50%);
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
 .synth-master-meter__segments {
+  flex: 0 0 10px;
   display: flex;
   flex-direction: column-reverse;
   gap: 1px;
-  flex-shrink: 0;
-  width: 10px;
-  min-height: 28px;
+  align-self: stretch;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
 }
 
 .synth-master-meter__segment {
@@ -789,17 +886,6 @@ html.dark-mode .synth-master-sync__lamp--on {
 
 .synth-master-meter__segment--on {
   background: var(--accent);
-}
-
-.synth-master-meter__value {
-  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, monospace;
-  font-size: 0.65rem;
-  font-weight: 600;
-  color: var(--accent);
-  letter-spacing: 0.02em;
-  margin-left: auto;
-  display: flex;
-  align-items: center;
 }
 
 /* 出力波形窓（モジュールの波形ビジュアライズと同じ高さ） */
@@ -924,9 +1010,9 @@ html.dark-mode .synth-master-sync__lamp--on {
 
 /* ---------- 各モジュールの見た目（細かいUIはモジュール側で上書き可能） ---------- */
 .synth-module {
-  width: 160px;
-  max-width: 160px;
-  min-width: 160px;
+  width: 200px;
+  max-width: 200px;
+  min-width: 200px;
   flex-shrink: 0;
   min-height: 100px;
   background: var(--bg-panel);
@@ -1021,6 +1107,22 @@ html.dark-mode .synth-master-sync__lamp--on {
   margin-bottom: 0.35rem;
 }
 
+.synth-module__waveform-viz--eq8-spectrum {
+  width: 100%;
+  min-width: 280px;
+  height: 52px;
+  margin-bottom: 0.35rem;
+}
+
+/* LPF/HPF 窓（EQ-8 縮小版スタイル） */
+.synth-module__waveform-viz--eq8-style {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 44px;
+  margin-bottom: 0.35rem;
+}
+
 .synth-module__placeholder {
   font-style: italic;
 }
@@ -1045,19 +1147,27 @@ html.dark-mode .synth-master-sync__lamp--on {
   padding: 0.5rem;
 }
 
+/* 窓幅基準: ラベル・バー・数値・ジャックの幅と横位置を全モジュールで共通に固定 */
 .synth-module__row {
   display: flex;
   align-items: center;
-  gap: 0.2rem;
+  gap: 0.15rem;
   flex-shrink: 0;
   min-width: 0;
+  flex-wrap: nowrap;
+  white-space: nowrap;
 }
 
 .synth-module__label {
-  flex-shrink: 0;
-  width: 3.2em;
+  flex: 0 0 5em;
+  width: 5em;
+  min-width: 5em;
+  max-width: 5em;
   font-size: 0.7rem;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ノブ廃止: スライダーは非表示にし、バーのみ表示（rack.js で .synth-module__slider--hidden を付与） */
@@ -1080,6 +1190,13 @@ html.dark-mode .synth-master-sync__lamp--on {
   pointer-events: none;
 }
 
+/* バー列: 全モジュールで同じ幅・同じ横位置（窓幅基準） */
+.synth-module__row .synth-module__slider:not(.synth-module__slider--hidden) {
+  flex: 0 0 2rem;
+  width: 2rem;
+  min-width: 2rem;
+}
+
 .synth-module__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   width: 14px;
@@ -1098,10 +1215,11 @@ html.dark-mode .synth-master-sync__lamp--on {
   border: none;
 }
 
-/* パラメータ値の割合を表示する小さなバー（ノブの代わり）・幅は数値に依存せず固定 */
+/* パラメータ値の割合を表示するバー（全モジュールで同じ長さ・同じ横位置） */
 .synth-module__param-bar {
-  flex: none;
-  width: 1.5rem;
+  flex: 0 0 2rem;
+  width: 2rem;
+  min-width: 2rem;
   height: 4px;
   background: var(--bg-tertiary);
   border-radius: 2px;
@@ -1118,25 +1236,30 @@ html.dark-mode .synth-master-sync__lamp--on {
   flex: none;
 }
 
+/* 数値・単位列: 全モジュールで同じ幅・同じ横位置 */
 .synth-module__value {
-  flex-shrink: 0;
-  min-width: 3.2em;
-  max-width: 3.2em;
-  padding-left: 0.12rem;
-  font-size: 0.65rem;
+  flex: 0 0 5em;
+  width: 5em;
+  min-width: 5em;
+  max-width: 5em;
+  padding-left: 0.15rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   text-align: right;
   cursor: ns-resize;
   user-select: none;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .synth-module__value:hover {
   color: var(--text-primary);
 }
 
+/* セレクトは「バー列」と同じ開始位置（ラベル 2.5em の右）から、残り幅を使用 */
 .synth-module__select {
   flex: 1;
-  min-width: 4em;
+  min-width: 0;
   padding: 0.25rem 0.35rem;
   font-size: 0.7rem;
   border: 1px solid var(--border-color);
@@ -1162,6 +1285,79 @@ html.dark-mode .synth-master-sync__lamp--on {
 .synth-module__trigger:hover {
   border-color: var(--accent);
   background: var(--accent-bg);
+}
+
+.synth-module__checkbox {
+  width: 1rem;
+  height: 1rem;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* ---------- EQ-8（8バンドイコライザー） ---------- */
+.synth-module--eq8 {
+  min-width: 320px;
+}
+
+.synth-module--eq8 .synth-module__eq8-band-strip {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
+  justify-content: flex-start;
+}
+.synth-module__eq8-band-btn {
+  flex: 0 0 auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  font-size: 0.65rem;
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.synth-module__eq8-band-btn:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+.synth-module__eq8-band-btn--on {
+  background: var(--accent-bg);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.synth-module__eq8-band-btn--active {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.synth-module__eq8-band-btn--on.synth-module__eq8-band-btn--active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 0 2px var(--accent);
+}
+.synth-module__eq8-jacks-row {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  flex-wrap: nowrap;
+}
+.synth-module__eq8-jacks-row .synth-module__label {
+  flex: 0 0 2.2em;
+}
+.synth-module__eq8-jacks-row .synth-module__jack-wrap {
+  flex: 1;
+  min-width: 0;
+  justify-content: center;
+}
+
+.synth-module__eq8-params--hidden {
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 /* ---------- シーケンサ専用（上窓 + BPM + ステップごと設定、Sync 表示） ---------- */
@@ -1375,8 +1571,11 @@ html.dark-mode .synth-master-sync__lamp--on {
   gap: 0.2rem;
 }
 
+/* ジャック列: 全モジュールで同じ幅・右端に固定 */
 .synth-module__jack-wrap {
-  flex-shrink: 0;
+  flex: 0 0 1rem;
+  width: 1rem;
+  min-width: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;

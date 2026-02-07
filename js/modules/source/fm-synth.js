@@ -148,6 +148,9 @@ export const fmSynthModule = {
       getAudioOutput() {
         return outputGain;
       },
+      reconnectWaveformViz() {
+        viz.reconnect();
+      },
       getModulatableParams() {
         return [
           { id: 'carrierFreq', name: 'Carrier', param: carrierFreqConst.offset, modulationScale: 100 },

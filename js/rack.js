@@ -5,6 +5,7 @@
  */
 
 import { removeConnectionsBySlot, redrawCables, createInputJack } from './cables.js';
+import { ensureAudioContext, ensureLpfWorklet, ensureHpfWorklet, ensurePwmWorklet } from './audio-core.js';
 
 /** @typedef {'source'|'effect'|'modulator'} ModuleKind */
 
@@ -63,7 +64,8 @@ function updateParamBarFill(input, fillEl) {
   fillEl.style.width = `${pct}%`;
 }
 
-function replaceSlidersWithBars(moduleElement) {
+/** スライダーを非表示にして値バーだけ表示（プレビュー・ラック共通） */
+export function replaceSlidersWithBars(moduleElement) {
   const inputs = moduleElement.querySelectorAll('input[type="range"].synth-module__slider');
   inputs.forEach((input) => {
     const min = parseFloat(input.min) || 0;
@@ -98,13 +100,23 @@ function createSlotWrapper(slot, factory) {
   wrapper.setAttribute('draggable', 'false');
 
   if (factory.meta.kind !== 'source') {
-    const handle = document.createElement('div');
-    handle.className = 'synth-rack__slot-handle';
-    handle.setAttribute('draggable', 'true');
-    handle.setAttribute('aria-label', 'Drag to reorder');
-    handle.title = 'Drag to reorder';
-    handle.textContent = '⋮⋮';
-    wrapper.appendChild(handle);
+    const arrows = document.createElement('div');
+    arrows.className = 'synth-rack__slot-arrows';
+    const btnLeft = document.createElement('button');
+    btnLeft.type = 'button';
+    btnLeft.className = 'synth-rack__slot-arrow synth-rack__slot-arrow--left';
+    btnLeft.setAttribute('aria-label', 'Move left');
+    btnLeft.title = 'Move left';
+    btnLeft.textContent = '‹';
+    const btnRight = document.createElement('button');
+    btnRight.type = 'button';
+    btnRight.className = 'synth-rack__slot-arrow synth-rack__slot-arrow--right';
+    btnRight.setAttribute('aria-label', 'Move right');
+    btnRight.title = 'Move right';
+    btnRight.textContent = '›';
+    arrows.appendChild(btnLeft);
+    arrows.appendChild(btnRight);
+    wrapper.appendChild(arrows);
   }
   wrapper.appendChild(slot.instance.element);
   replaceSlidersWithBars(slot.instance.element);
@@ -115,6 +127,15 @@ export function registerModule(factory) {
   if (!factory.meta?.id) throw new Error('Module must have meta.id');
   if (!factory.meta?.kind) throw new Error('Module must have meta.kind');
   moduleRegistry.set(factory.meta.id, factory);
+}
+
+/**
+ * typeId に対応するモジュールファクトリを返す（プレビュー用）
+ * @param {string} typeId
+ * @returns {import('./modules/base.js').ModuleFactory|null}
+ */
+export function getModuleFactory(typeId) {
+  return moduleRegistry.get(typeId) ?? null;
 }
 
 /**
@@ -139,11 +160,20 @@ export function setRackContainer(el) {
 /**
  * 行を追加（音源スロット1つのみ）。音源は一番左に縦に追加。
  * @param {string} typeId - 音源モジュールの id
- * @returns {{ rowIndex: number, slot: RackSlot }|null}
+ * @returns {Promise<{ rowIndex: number, slot: RackSlot }|null>}
  */
-export function addSourceRow(typeId) {
+export async function addSourceRow(typeId) {
   const factory = moduleRegistry.get(typeId);
   if (!factory || factory.meta.kind !== 'source' || !rackContainerEl) return null;
+
+  if (typeId === 'pwm') {
+    try {
+      ensureAudioContext();
+      await ensurePwmWorklet();
+    } catch (_) {
+      return null;
+    }
+  }
 
   const instanceId = nextInstanceId(typeId);
   const instance = factory.create(instanceId);
@@ -255,23 +285,45 @@ export function addSourceRow(typeId) {
  * 指定行のチェーン末尾にエフェクトを追加（横に並ぶ・順番は自由に変更可）
  * @param {number} rowIndex
  * @param {string} typeId
- * @returns {RackSlot|null}
+ * @returns {Promise<RackSlot|null>}
  */
-export function addEffectToRow(rowIndex, typeId) {
+export async function addEffectToRow(rowIndex, typeId) {
   const factory = moduleRegistry.get(typeId);
   if (!factory || factory.meta.kind !== 'effect') return null;
   const row = rows[rowIndex];
   if (!row || !row._chainCol) return null;
 
-  const instanceId = nextInstanceId(typeId);
-  const instance = factory.create(instanceId);
-  const slot = { typeId, instanceId, kind: 'effect', element: null, instance };
-  slot.element = createSlotWrapper(slot, factory);
-  bindSlotEvents(slot);
+  if (typeId === 'lpf') {
+    try {
+      ensureAudioContext();
+      await ensureLpfWorklet();
+    } catch (_) {
+      return null;
+    }
+  }
+  if (typeId === 'hpf') {
+    try {
+      ensureAudioContext();
+      await ensureHpfWorklet();
+    } catch (_) {
+      return null;
+    }
+  }
 
-  row.chain.push(slot);
-  row._chainCol.appendChild(slot.element);
-  return slot;
+  try {
+    const instanceId = nextInstanceId(typeId);
+    const instance = factory.create(instanceId);
+    if (!instance?.element) return null;
+    const slot = { typeId, instanceId, kind: 'effect', element: null, instance };
+    slot.element = createSlotWrapper(slot, factory);
+    bindSlotEvents(slot);
+    row.chain.push(slot);
+    row._chainCol.appendChild(slot.element);
+    updateChainMoveButtons(row);
+    return slot;
+  } catch (_) {
+    return null;
+  }
 }
 
 /**
@@ -294,6 +346,7 @@ export function addModulatorToRow(rowIndex, typeId) {
 
   row.chain.push(slot);
   row._chainCol.appendChild(slot.element);
+  updateChainMoveButtons(row);
   return slot;
 }
 
@@ -307,33 +360,70 @@ function findSlotByInstanceId(instanceId) {
   return null;
 }
 
+function updateChainMoveButtons(row) {
+  if (!row?.chain?.length || !row._chainCol) return;
+  row.chain.forEach((s, idx) => {
+    const left = s.element?.querySelector('.synth-rack__slot-arrow--left');
+    const right = s.element?.querySelector('.synth-rack__slot-arrow--right');
+    const atStart = idx === 0;
+    const atEnd = idx === row.chain.length - 1;
+    if (left) {
+      left.disabled = atStart;
+      left.classList.toggle('synth-rack__slot-arrow--disabled', atStart);
+    }
+    if (right) {
+      right.disabled = atEnd;
+      right.classList.toggle('synth-rack__slot-arrow--disabled', atEnd);
+    }
+  });
+}
+
+async function moveSlotLeft(slot) {
+  const info = findSlotByInstanceId(slot.instanceId);
+  if (!info || info.slot.kind === 'source') return;
+  const { row, rowIndex } = info;
+  const idx = row.chain.findIndex((s) => s.instanceId === slot.instanceId);
+  if (idx <= 0) return;
+  const [removed] = row.chain.splice(idx, 1);
+  row.chain.splice(idx - 1, 0, removed);
+  // 並べ替え後、removed は idx-1 番目。その右隣（挿入の基準）は row.chain[idx]
+  row._chainCol.insertBefore(removed.element, row.chain[idx]?.element ?? null);
+  redrawCables();
+  if (onChainChange) {
+    const p = onChainChange(rowIndex);
+    if (p && typeof p.then === 'function') await p;
+  }
+  updateChainMoveButtons(row);
+}
+
+async function moveSlotRight(slot) {
+  const info = findSlotByInstanceId(slot.instanceId);
+  if (!info || info.slot.kind === 'source') return;
+  const { row, rowIndex } = info;
+  const idx = row.chain.findIndex((s) => s.instanceId === slot.instanceId);
+  if (idx < 0 || idx >= row.chain.length - 1) return;
+  const [removed] = row.chain.splice(idx, 1);
+  row.chain.splice(idx + 1, 0, removed);
+  const nextEl = row.chain[idx + 2]?.element ?? null;
+  if (nextEl) row._chainCol.insertBefore(removed.element, nextEl);
+  else row._chainCol.appendChild(removed.element);
+  redrawCables();
+  if (onChainChange) {
+    const p = onChainChange(rowIndex);
+    if (p && typeof p.then === 'function') await p;
+  }
+  updateChainMoveButtons(row);
+}
+
 function bindSlotEvents(slot) {
   const wrapper = slot.element;
-  const handle = wrapper.querySelector('.synth-rack__slot-handle');
-  if (handle && slot.kind !== 'source') {
-    handle.addEventListener('dragstart', (e) => {
-      e.dataTransfer.setData('text/plain', slot.instanceId);
-      e.dataTransfer.effectAllowed = 'move';
-      wrapper.classList.add('synth-rack__slot--dragging');
-    });
-    handle.addEventListener('dragend', () => {
-      wrapper.classList.remove('synth-rack__slot--dragging');
-    });
-    wrapper.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.dataTransfer.dropEffect = 'move';
-      wrapper.classList.add('synth-rack__slot--drag-over');
-    });
-    wrapper.addEventListener('dragleave', (e) => {
-      if (!wrapper.contains(e.relatedTarget)) wrapper.classList.remove('synth-rack__slot--drag-over');
-    });
-    wrapper.addEventListener('drop', (e) => {
-      e.preventDefault();
-      wrapper.classList.remove('synth-rack__slot--drag-over');
-      const fromId = e.dataTransfer.getData('text/plain');
-      if (!fromId || fromId === slot.instanceId) return;
-      moveSlotInChain(fromId, slot);
-    });
+  const btnLeft = wrapper.querySelector('.synth-rack__slot-arrow--left');
+  const btnRight = wrapper.querySelector('.synth-rack__slot-arrow--right');
+  if (btnLeft && slot.kind !== 'source') {
+    btnLeft.addEventListener('click', () => moveSlotLeft(slot));
+  }
+  if (btnRight && slot.kind !== 'source') {
+    btnRight.addEventListener('click', () => moveSlotRight(slot));
   }
 
   const removeBtn = wrapper.querySelector('.synth-module__remove');
@@ -343,27 +433,6 @@ function bindSlotEvents(slot) {
       removeModule(slot.instanceId);
     });
   }
-}
-
-/** チェーン内でスロットの順番を入れ替え（エフェクト・モジュレータ同一チェーン内で自由に並び替え） */
-function moveSlotInChain(fromInstanceId, toSlot) {
-  const fromInfo = findSlotByInstanceId(fromInstanceId);
-  const toInfo = findSlotByInstanceId(toSlot.instanceId);
-  if (!fromInfo || !toInfo || fromInfo.rowIndex !== toInfo.rowIndex) return;
-  if (fromInfo.slot.kind === 'source' || toInfo.slot.kind === 'source') return;
-
-  const row = fromInfo.row;
-  const fromIdx = row.chain.findIndex((s) => s.instanceId === fromInstanceId);
-  const toIdx = row.chain.findIndex((s) => s.instanceId === toSlot.instanceId);
-  if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return;
-
-  const [removed] = row.chain.splice(fromIdx, 1);
-  const newToIdx = row.chain.findIndex((s) => s.instanceId === toSlot.instanceId);
-  row.chain.splice(newToIdx, 0, removed);
-  row._chainCol.insertBefore(removed.element, row.chain[newToIdx + 1]?.element ?? null);
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => redrawCables());
-  });
 }
 
 export function removeModule(instanceId) {
@@ -386,6 +455,7 @@ export function removeModule(instanceId) {
     }
   } else {
     row.chain = row.chain.filter((s) => s.instanceId !== instanceId);
+    updateChainMoveButtons(row);
     if (onChainChange) onChainChange(rowIndex);
   }
 }
