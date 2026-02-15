@@ -9,68 +9,6 @@ import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
 
-/** プレビュー用：AudioWorklet なしで同じ見た目の DOM を生成 */
-function buildPwmDomOnly(silentGainNode) {
-  const root = document.createElement('div');
-  root.className = 'synth-module synth-module--pwm synth-module--source';
-  root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', 'PWM Oscillator');
-  const header = document.createElement('div');
-  header.className = 'synth-module__header';
-  const title = document.createElement('span');
-  title.className = 'synth-module__title';
-  title.textContent = pwmModule.meta.name;
-  header.appendChild(title);
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'synth-module__remove';
-  removeBtn.title = 'Remove';
-  removeBtn.textContent = '×';
-  header.appendChild(removeBtn);
-  root.appendChild(header);
-  const body = document.createElement('div');
-  body.className = 'synth-module__body synth-module__body--controls';
-  attachWaveformViz(body, silentGainNode);
-  const freqRow = document.createElement('div');
-  freqRow.className = 'synth-module__row';
-  freqRow.innerHTML = `
-    <label class="synth-module__label">Freq</label>
-    <input type="range" class="synth-module__slider" data-param="freq" min="20" max="20000" value="440" step="1">
-    <span class="synth-module__value">440 Hz</span>
-  `;
-  const freqJackWrap = document.createElement('div');
-  freqJackWrap.className = 'synth-module__jack-wrap';
-  createInputJack(freqJackWrap, 'frequency');
-  freqRow.appendChild(freqJackWrap);
-  body.appendChild(freqRow);
-  const pwRow = document.createElement('div');
-  pwRow.className = 'synth-module__row';
-  pwRow.innerHTML = `
-    <label class="synth-module__label">Pulse %</label>
-    <input type="range" class="synth-module__slider" data-param="pulseWidth" min="0" max="100" value="50" step="0.1">
-    <span class="synth-module__value">50 %</span>
-  `;
-  const pwJackWrap = document.createElement('div');
-  pwJackWrap.className = 'synth-module__jack-wrap';
-  createInputJack(pwJackWrap, 'pulseWidth');
-  pwRow.appendChild(pwJackWrap);
-  body.appendChild(pwRow);
-  const gainRow = document.createElement('div');
-  gainRow.className = 'synth-module__row';
-  gainRow.innerHTML = `
-    <label class="synth-module__label">Gain</label>
-    <input type="range" class="synth-module__slider" data-param="gain" min="0" max="100" value="30" step="1">
-    <span class="synth-module__value">30 %</span>
-  `;
-  const gainJackWrap = document.createElement('div');
-  gainJackWrap.className = 'synth-module__jack-wrap';
-  createInputJack(gainJackWrap, 'gain');
-  gainRow.appendChild(gainJackWrap);
-  body.appendChild(gainRow);
-  root.appendChild(body);
-  return root;
-}
-
 /** @type {import('../base.js').ModuleFactory} */
 export const pwmModule = {
   meta: {
@@ -81,13 +19,6 @@ export const pwmModule = {
   },
 
   create(instanceId) {
-    const isPreview = String(instanceId).startsWith('preview-');
-    if (isPreview) {
-      const ctx = ensureAudioContext();
-      const silentGain = ctx.createGain();
-      silentGain.gain.value = 0;
-      return { element: buildPwmDomOnly(silentGain) };
-    }
     const ctx = ensureAudioContext();
     const pwmNode = new AudioWorkletNode(ctx, 'pwm-oscillator', {
       numberOfInputs: 0,

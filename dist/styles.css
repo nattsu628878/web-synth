@@ -943,170 +943,13 @@ html.dark-mode .synth-master-sync__lamp--on {
   transition: width 0.05s ease-out, left 0.05s ease-out;
 }
 
-/* 各グラフブロック（矢印で設定を垂れ下げ） */
-.synth-master-graph-block {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.synth-master-graph-block__head {
+/* 出力波形窓（モジュールの波形ビジュアライズと同じ高さ） */
+.synth-master-waveform {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
 }
 
-.synth-master-graph-block__wrap {
-  position: relative;
-  z-index: 1; /* 窓で設定項目の文字を隠す */
-}
-
-.synth-master-graph-block__wrap:hover .synth-master-graph-block__trigger,
-.synth-master-graph-block--settings-open .synth-master-graph-block__trigger {
-  opacity: 1;
-}
-
-.synth-master-graph-block__trigger {
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 16px;
-  height: 16px;
-  padding: 0;
-  font-size: 9px;
-  line-height: 1;
-  opacity: 0;
-  transition: opacity 0.15s, transform 0.2s ease-out;
-  border: none;
-  background: rgba(0, 0, 0, 0.15);
-  border-radius: 50%;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.synth-master-graph-block__trigger:hover {
-  background: rgba(0, 0, 0, 0.25);
-}
-
-.synth-master-graph-block--settings-open .synth-master-graph-block__trigger {
-  transform: rotate(-180deg);
-}
-
-/* 設定パネル：引き出しが行きすぎる→戻る／しまうときはスッと */
-.synth-master-graph-block__settings {
-  max-height: 0;
-  margin-top: -8px;
-  overflow: hidden;
-  padding-left: 0.28rem;
-  padding-right: 0.28rem;
-  padding-top: 0;
-  padding-bottom: 0;
-  transition:
-    max-height 0.26s ease-out,
-    padding-top 0.26s ease-out,
-    padding-bottom 0.26s ease-out,
-    margin 0.26s ease-out;
-  transition-delay: 0.2s;
-}
-
-.synth-master-graph-block--settings-open .synth-master-graph-block__settings {
-  max-height: 80vh;
-  padding-top: calc(0.2rem + 8px);
-  padding-bottom: 0.2rem;
-  margin-top: -8px;
-  transition-delay: 0s;
-  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.synth-master-graph-block__settings-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  margin-top: 0;
-  transform: translateY(-100%);
-  transition: transform 0.38s ease-out, margin-top 0.4s;
-  transition-delay: 0s;
-}
-
-.synth-master-graph-block--settings-open .synth-master-graph-block__settings-inner {
-  transform: translateY(0);
-  margin-top: -0.15em; /* 窓の縁で少し隠す程度、一番上は見える */
-  transition-delay: 0.05s;
-  transition-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
-  transition-duration: 0.4s;
-}
-
-.synth-master-graph-opts__row {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-}
-
-.synth-master-graph-opts__label {
-  font-size: 0.5rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
-  min-width: 2.4rem;
-  flex-shrink: 0;
-}
-
-.synth-master-graph-opts__bar {
-  flex: 0 0 1rem;
-  width: 1rem;
-  min-width: 1rem;
-  height: 3px;
-  background: var(--bg-secondary);
-  border-radius: 1px;
-  overflow: hidden;
-}
-
-.synth-master-graph-opts__bar-fill {
-  height: 100%;
-  background: var(--accent);
-  border-radius: 1px;
-  transition: width 0.05s ease-out;
-}
-
-.synth-master-graph-opts__slider.synth-master-graph-opts__slider--hidden {
-  position: absolute;
-  width: 0;
-  height: 0;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.synth-master-graph-opts__value {
-  font-size: 0.52rem;
-  color: var(--text-muted);
-  min-width: 1.6rem;
-  text-align: right;
-  cursor: ns-resize;
-  user-select: none;
-}
-
-.synth-master-graph-opts__select {
-  font-size: 0.5rem;
-  padding: 0.08rem 0.15rem;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 2px;
-  color: var(--text-primary);
-  flex: 1;
-  min-width: 0;
-}
-
-.synth-master-graph-opts__check {
-  accent-color: var(--accent);
-  width: 0.7rem;
-  height: 0.7rem;
-}
-
-/* 出力波形窓（モジュールの波形ビジュアライズと同じ高さ） */
 .synth-master-waveform__label {
   font-size: 0.65rem;
   font-weight: 600;
@@ -1116,8 +959,8 @@ html.dark-mode .synth-master-sync__lamp--on {
 }
 
 .synth-master-waveform__wrap {
-  height: 56px;
-  min-height: 56px;
+  height: 28px;
+  min-height: 28px;
   background: var(--bg-tertiary);
   border-radius: 4px;
   overflow: hidden;

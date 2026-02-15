@@ -127,69 +127,28 @@
             </div>
           </div>
         </div>
-        <div class="synth-master-graph-block" data-graph="wave">
-          <div class="synth-master-graph-block__head">
-            <span class="synth-master-waveform__label">Wave</span>
-            <div class="synth-master-waveform__wrap synth-master-graph-block__wrap">
-              <canvas class="synth-master-waveform__canvas" id="masterWaveformCanvas" aria-hidden="true"></canvas>
-              <button type="button" class="synth-master-graph-block__trigger" aria-label="Open settings" aria-expanded="false" title="Settings">▾</button>
-            </div>
-          </div>
-          <div class="synth-master-graph-block__settings">
-            <div class="synth-master-graph-block__settings-inner">
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Level</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="level" min="50" max="200" value="100"><span class="synth-master-graph-opts__value" data-opt-value="level">100%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Smooth</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="smoothing" min="0" max="90" value="60"><span class="synth-master-graph-opts__value" data-opt-value="smoothing">60%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Line</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="waveLineWidth" min="1" max="3" value="1"><span class="synth-master-graph-opts__value" data-opt-value="waveLineWidth">1px</span></div>
-            </div>
+        <div class="synth-master-waveform">
+          <span class="synth-master-waveform__label">Wave</span>
+          <div class="synth-master-waveform__wrap">
+            <canvas class="synth-master-waveform__canvas" id="masterWaveformCanvas" aria-hidden="true"></canvas>
           </div>
         </div>
-        <div class="synth-master-graph-block" data-graph="spectrum">
-          <div class="synth-master-graph-block__head">
-            <span class="synth-master-spectrum__label">Spectrum</span>
-            <div class="synth-master-spectrum__wrap synth-master-graph-block__wrap">
-              <canvas class="synth-master-spectrum__canvas" id="masterSpectrumCanvas" aria-hidden="true"></canvas>
-              <button type="button" class="synth-master-graph-block__trigger" aria-label="Open settings" aria-expanded="false" title="Settings">▾</button>
-            </div>
-          </div>
-          <div class="synth-master-graph-block__settings">
-            <div class="synth-master-graph-block__settings-inner">
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Level</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="level" min="50" max="200" value="100"><span class="synth-master-graph-opts__value" data-opt-value="level">100%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Smooth</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="smoothing" min="0" max="90" value="60"><span class="synth-master-graph-opts__value" data-opt-value="smoothing">60%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">FFT</label><select class="synth-master-graph-opts__select" data-opt="fftSize"><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option><option value="4096">4096</option></select></div>
-            </div>
+        <div class="synth-master-spectrum">
+          <span class="synth-master-spectrum__label">Spectrum</span>
+          <div class="synth-master-spectrum__wrap">
+            <canvas class="synth-master-spectrum__canvas" id="masterSpectrumCanvas" aria-hidden="true"></canvas>
           </div>
         </div>
-        <div class="synth-master-graph-block" data-graph="spectrogram">
-          <div class="synth-master-graph-block__head">
-            <span class="synth-master-spectrogram__label">Spectrogram</span>
-            <div class="synth-master-spectrogram__wrap synth-master-graph-block__wrap">
-              <canvas class="synth-master-spectrogram__canvas" id="masterSpectrogramCanvas" aria-hidden="true"></canvas>
-              <button type="button" class="synth-master-graph-block__trigger" aria-label="Open settings" aria-expanded="false" title="Settings">▾</button>
-            </div>
-          </div>
-          <div class="synth-master-graph-block__settings">
-            <div class="synth-master-graph-block__settings-inner">
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Level</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="level" min="50" max="200" value="100"><span class="synth-master-graph-opts__value" data-opt-value="level">100%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Smooth</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="smoothing" min="0" max="90" value="60"><span class="synth-master-graph-opts__value" data-opt-value="smoothing">60%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Decay</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="spectrogramDecay" min="0" max="98" value="0"><span class="synth-master-graph-opts__value" data-opt-value="spectrogramDecay">0%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Color</label><select class="synth-master-graph-opts__select" data-opt="spectrogramColor"><option value="default" selected>Default</option><option value="hot">Hot</option><option value="cool">Cool</option></select></div>
-            </div>
+        <div class="synth-master-spectrogram">
+          <span class="synth-master-spectrogram__label">Spectrogram</span>
+          <div class="synth-master-spectrogram__wrap">
+            <canvas class="synth-master-spectrogram__canvas" id="masterSpectrogramCanvas" aria-hidden="true"></canvas>
           </div>
         </div>
-        <div class="synth-master-graph-block" data-graph="goniometer">
-          <div class="synth-master-graph-block__head">
-            <span class="synth-master-goniometer__label">Goniometer</span>
-            <div class="synth-master-goniometer__wrap synth-master-graph-block__wrap">
-              <canvas class="synth-master-goniometer__canvas" id="masterGoniometerCanvas" aria-hidden="true"></canvas>
-              <button type="button" class="synth-master-graph-block__trigger" aria-label="Open settings" aria-expanded="false" title="Settings">▾</button>
-            </div>
-          </div>
-          <div class="synth-master-graph-block__settings">
-            <div class="synth-master-graph-block__settings-inner">
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Level</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="level" min="50" max="200" value="100"><span class="synth-master-graph-opts__value" data-opt-value="level">100%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Smooth</label><div class="synth-master-graph-opts__bar"><div class="synth-master-graph-opts__bar-fill"></div></div><input type="range" class="synth-master-graph-opts__slider synth-master-graph-opts__slider--hidden" data-opt="smoothing" min="0" max="90" value="60"><span class="synth-master-graph-opts__value" data-opt-value="smoothing">60%</span></div>
-              <div class="synth-master-graph-opts__row"><label class="synth-master-graph-opts__label">Grid</label><input type="checkbox" class="synth-master-graph-opts__check" data-opt="goniometerGrid" title="Show grid"></div>
-            </div>
+        <div class="synth-master-goniometer">
+          <span class="synth-master-goniometer__label">Goniometer</span>
+          <div class="synth-master-goniometer__wrap">
+            <canvas class="synth-master-goniometer__canvas" id="masterGoniometerCanvas" aria-hidden="true"></canvas>
           </div>
         </div>
       </aside>

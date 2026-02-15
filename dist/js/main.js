@@ -33,8 +33,6 @@ import { wavetableModule } from './modules/source/wavetable.js';
 import { noiseModule } from './modules/source/noise.js';
 import { pwmModule } from './modules/source/pwm.js';
 import { pluckModule } from './modules/source/pluck.js';
-import { ffOscModule } from './modules/source/ff-osc.js';
-import { ffWavetableModule } from './modules/source/ff-wavetable.js';
 import { reverbModule } from './modules/effect/reverb.js';
 import { eq8Module } from './modules/effect/eq8.js';
 import { lpfModule } from './modules/effect/lpf.js';
@@ -56,8 +54,6 @@ registerModule(wavetableModule);
 registerModule(noiseModule);
 registerModule(pwmModule);
 registerModule(pluckModule);
-registerModule(ffOscModule);
-registerModule(ffWavetableModule);
 registerModule(reverbModule);
 registerModule(eq8Module);
 registerModule(lpfModule);
@@ -442,179 +438,15 @@ const masterSpectrogramCanvas = document.getElementById('masterSpectrogramCanvas
 const masterGoniometerCanvas = document.getElementById('masterGoniometerCanvas');
 const WAVEFORM_COLOR = '#628878';
 
-/** グラフ表示オプション（描画時に参照） */
-let masterGraphLevel = 1;
-let masterGraphSmoothing = 0.6;
-let masterSpectrogramDecay = 0;
-let masterWaveLineWidth = 1;
-let masterFftSize = 1024;
-let masterSpectrogramColorTheme = 'default';
-let masterGoniometerGrid = false;
-
-/** パネル内のスライダーをグローバル変数に合わせて同期（開いたときに正しいバーを表示） */
-function syncPanelSlidersFromGlobals(panel) {
-  if (!panel) return;
-  panel.querySelectorAll('input[type="range"].synth-master-graph-opts__slider').forEach((slider) => {
-    const opt = slider.dataset.opt;
-    let val = 0;
-    if (opt === 'level') val = masterGraphLevel * 100;
-    else if (opt === 'smoothing') val = masterGraphSmoothing * 100;
-    else if (opt === 'waveLineWidth') val = masterWaveLineWidth;
-    else if (opt === 'spectrogramDecay') val = masterSpectrogramDecay * 100;
-    else return;
-    const min = parseFloat(slider.min);
-    const max = parseFloat(slider.max);
-    slider.value = String(Math.max(min, Math.min(max, val)));
-    updateGraphOptBarFill(slider);
-  });
-  panel.querySelectorAll('[data-opt-value]').forEach((el) => {
-    const opt = el.getAttribute('data-opt-value');
-    if (opt === 'level') el.textContent = `${Math.round(masterGraphLevel * 100)}%`;
-    else if (opt === 'smoothing') el.textContent = `${Math.round(masterGraphSmoothing * 100)}%`;
-    else if (opt === 'waveLineWidth') el.textContent = `${masterWaveLineWidth}px`;
-    else if (opt === 'spectrogramDecay') el.textContent = `${Math.round(masterSpectrogramDecay * 100)}%`;
-  });
-}
-
-/** 各グラフブロックの設定パネル開閉（スライドアニメーションは CSS で実施） */
-document.querySelectorAll('.synth-master-graph-block').forEach((block) => {
-  const trigger = block.querySelector('.synth-master-graph-block__trigger');
-  const settings = block.querySelector('.synth-master-graph-block__settings');
-  if (!trigger || !settings) return;
-  trigger.addEventListener('click', () => {
-    const open = !block.classList.contains('synth-master-graph-block--settings-open');
-    block.classList.toggle('synth-master-graph-block--settings-open', open);
-    trigger.setAttribute('aria-expanded', String(open));
-    if (open) syncPanelSlidersFromGlobals(settings);
-  });
-});
-
-/** 設定パネル内のコントロールをグローバル変数と同期（表示＋スライダー・バーも同期） */
-function syncGraphOptDisplay(optName, value) {
-  document.querySelectorAll(`[data-opt-value="${optName}"]`).forEach((el) => {
-    if (optName === 'level') el.textContent = `${Math.round(value * 100)}%`;
-    else if (optName === 'smoothing') el.textContent = `${Math.round(value * 100)}%`;
-    else if (optName === 'waveLineWidth') el.textContent = `${value}px`;
-    else if (optName === 'spectrogramDecay') el.textContent = `${Math.round(value * 100)}%`;
-  });
-  const sliders = document.querySelectorAll(`.synth-master-graph-opts__slider[data-opt="${optName}"]`);
-  let sliderValue = value;
-  if (optName === 'level') sliderValue = Math.round(value * 100);
-  else if (optName === 'smoothing') sliderValue = Math.round(value * 100);
-  else if (optName === 'spectrogramDecay') sliderValue = Math.round(value * 100);
-  sliders.forEach((slider) => {
-    const min = parseFloat(slider.min);
-    const max = parseFloat(slider.max);
-    const clamped = Math.max(min, Math.min(max, sliderValue));
-    slider.value = String(clamped);
-    updateGraphOptBarFill(slider);
-  });
-}
-
-/** スライダーに対応するバー fill の幅を更新（モジュールのバー同様） */
-function updateGraphOptBarFill(slider) {
-  const bar = slider.previousElementSibling;
-  if (!bar || !bar.classList.contains('synth-master-graph-opts__bar')) return;
-  const fill = bar.querySelector('.synth-master-graph-opts__bar-fill');
-  if (!fill) return;
-  const min = parseFloat(slider.min) || 0;
-  const max = parseFloat(slider.max) || 100;
-  const val = parseFloat(slider.value) || min;
-  const range = max - min;
-  const pct = range <= 0 ? 0 : Math.max(0, Math.min(100, ((val - min) / range) * 100));
-  fill.style.width = `${pct}%`;
-}
-
-/** グラフ設定のスライダー行でホイール・バークリックで値を変更 */
-function bindGraphOptSliders(panel) {
-  panel.querySelectorAll('input[type="range"].synth-master-graph-opts__slider').forEach((slider) => {
-    updateGraphOptBarFill(slider);
-    slider.addEventListener('input', () => updateGraphOptBarFill(slider));
-    const valueEl = slider.nextElementSibling;
-    if (valueEl && valueEl.classList.contains('synth-master-graph-opts__value')) {
-      valueEl.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const min = parseFloat(slider.min) || 0;
-        const max = parseFloat(slider.max) || 100;
-        const step = parseFloat(slider.step) || 1;
-        let v = parseFloat(slider.value) + (e.deltaY > 0 ? -step : step);
-        v = Math.max(min, Math.min(max, v));
-        slider.value = String(v);
-        slider.dispatchEvent(new Event('input', { bubbles: true }));
-      }, { passive: false });
-    }
-    const bar = slider.previousElementSibling;
-    if (bar && bar.classList.contains('synth-master-graph-opts__bar')) {
-      bar.addEventListener('click', (e) => {
-        const min = parseFloat(slider.min) || 0;
-        const max = parseFloat(slider.max) || 100;
-        const ratio = Math.max(0, Math.min(1, e.offsetX / bar.clientWidth));
-        const v = min + ratio * (max - min);
-        const step = parseFloat(slider.step) || 1;
-        const stepped = Math.round((v - min) / step) * step + min;
-        slider.value = String(Math.max(min, Math.min(max, stepped)));
-        slider.dispatchEvent(new Event('input', { bubbles: true }));
-      });
-      bar.style.cursor = 'pointer';
-    }
-  });
-}
-
-document.querySelectorAll('.synth-master-graph-block__settings').forEach((panel) => {
-  bindGraphOptSliders(panel);
-  panel.addEventListener('input', (e) => {
-    const slider = e.target.closest('input[type="range"]');
-    const select = e.target.closest('select');
-    const check = e.target.closest('input[type="checkbox"]');
-    if (slider) {
-      updateGraphOptBarFill(slider);
-      const opt = slider.dataset.opt;
-      const val = Number(slider.value);
-      if (opt === 'level') { masterGraphLevel = val / 100; syncGraphOptDisplay('level', masterGraphLevel); }
-      else if (opt === 'smoothing') { masterGraphSmoothing = val / 100; syncGraphOptDisplay('smoothing', masterGraphSmoothing); }
-      else if (opt === 'waveLineWidth') { masterWaveLineWidth = val; syncGraphOptDisplay('waveLineWidth', masterWaveLineWidth); }
-      else if (opt === 'spectrogramDecay') { masterSpectrogramDecay = val / 100; syncGraphOptDisplay('spectrogramDecay', masterSpectrogramDecay); }
-    }
-    if (select) {
-      const opt = select.dataset.opt;
-      const val = select.value;
-      if (opt === 'fftSize') masterFftSize = Number(val);
-      else if (opt === 'spectrogramColor') masterSpectrogramColorTheme = val;
-    }
-  });
-  panel.addEventListener('change', (e) => {
-    const check = e.target.closest('input[type="checkbox"]');
-    if (check && check.dataset.opt === 'goniometerGrid') masterGoniometerGrid = check.checked;
-  });
-});
-
-/** 初期表示の同期 */
-document.querySelectorAll('[data-opt-value="level"]').forEach((el) => { el.textContent = '100%'; });
-document.querySelectorAll('[data-opt-value="smoothing"]').forEach((el) => { el.textContent = '60%'; });
-document.querySelectorAll('[data-opt-value="waveLineWidth"]').forEach((el) => { el.textContent = '1px'; });
-document.querySelectorAll('[data-opt-value="spectrogramDecay"]').forEach((el) => { el.textContent = '0%'; });
-
 /** スペクトログラム用オフスクリーンバッファ（スクロール用） */
 let spectrogramBuffer = null;
 let spectrogramBufferW = 0;
 let spectrogramBufferH = 0;
 
-/** 0–255 をスペクトログラム用の色に（テーマ: default / hot / cool） */
+/** 0–255 をスペクトログラム用の色に（暗→アクセント→明） */
 function spectrogramColor(value) {
   const t = value / 255;
-  if (t <= 0) {
-    if (masterSpectrogramColorTheme === 'hot') return 'rgb(20, 5, 5)';
-    if (masterSpectrogramColorTheme === 'cool') return 'rgb(5, 10, 20)';
-    return 'rgb(10, 10, 18)';
-  }
-  if (masterSpectrogramColorTheme === 'hot') {
-    if (t <= 0.5) return `rgb(${Math.round(40 + t * 120)}, ${Math.round(10 + t * 30)}, ${Math.round(5 + t * 15)})`;
-    return `rgb(${Math.round(160 + (t - 0.5) * 190)}, ${Math.round(40 + (t - 0.5) * 120)}, ${Math.round(20 + (t - 0.5) * 60)})`;
-  }
-  if (masterSpectrogramColorTheme === 'cool') {
-    if (t <= 0.5) return `rgb(${Math.round(5 + t * 20)}, ${Math.round(20 + t * 80)}, ${Math.round(40 + t * 120)})`;
-    return `rgb(${Math.round(25 + (t - 0.5) * 100)}, ${Math.round(100 + (t - 0.5) * 155)}, ${Math.round(160 + (t - 0.5) * 95)})`;
-  }
+  if (t <= 0) return 'rgb(10, 10, 18)';
   if (t <= 0.4) {
     const s = t / 0.4;
     return `rgb(${Math.round(10 + s * 50)}, ${Math.round(30 + s * 70)}, ${Math.round(40 + s * 60)})`;
@@ -687,12 +519,6 @@ function updateMeterAndWaveform() {
     requestAnimationFrame(updateMeterAndWaveform);
     return;
   }
-  analyser.smoothingTimeConstant = masterGraphSmoothing;
-  analyser.fftSize = masterFftSize;
-  const aL = getMasterAnalyserL();
-  const aR = getMasterAnalyserR();
-  if (aL) { aL.smoothingTimeConstant = masterGraphSmoothing; aL.fftSize = masterFftSize; }
-  if (aR) { aR.smoothingTimeConstant = masterGraphSmoothing; aR.fftSize = masterFftSize; }
   if (!analyserDataArray || analyserDataArray.length !== analyser.fftSize) {
     analyserDataArray = new Uint8Array(analyser.fftSize);
   }
@@ -785,14 +611,12 @@ function updateMeterAndWaveform() {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
         const centerY = h / 2;
-        const amp = centerY - 2;
         ctx.strokeStyle = WAVEFORM_COLOR;
-        ctx.lineWidth = Math.max(1, Math.min(3, masterWaveLineWidth));
+        ctx.lineWidth = 1;
         ctx.beginPath();
         for (let i = 0; i < analyserDataArray.length; i++) {
           const x = (i / analyserDataArray.length) * w;
-          const normalized = Math.max(-1, Math.min(1, ((analyserDataArray[i] - 128) / 128) * masterGraphLevel));
-          const y = centerY + normalized * amp;
+          const y = centerY + ((analyserDataArray[i] - 128) / 128) * (centerY - 2);
           if (i === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
@@ -817,7 +641,7 @@ function updateMeterAndWaveform() {
         const binCount = analyserFrequencyData.length;
         const barW = Math.max(1, (w / binCount) - 0.5);
         for (let i = 0; i < binCount; i++) {
-          const v = Math.min(1, (analyserFrequencyData[i] / 255) * masterGraphLevel);
+          const v = analyserFrequencyData[i] / 255;
           const barH = Math.max(0, v * h * 0.95);
           const x = (i / binCount) * w;
           const y = h - barH;
@@ -847,17 +671,11 @@ function updateMeterAndWaveform() {
       const bufCtx = spectrogramBuffer.getContext('2d');
       const binCount = analyserFrequencyData.length;
       if (bufCtx && w >= 2) {
-        if (masterSpectrogramDecay > 0) {
-          bufCtx.globalAlpha = masterSpectrogramDecay;
-          bufCtx.drawImage(spectrogramBuffer, 1, 0, w - 1, h, 0, 0, w - 1, h);
-          bufCtx.globalAlpha = 1;
-        } else {
-          bufCtx.drawImage(spectrogramBuffer, 1, 0, w - 1, h, 0, 0, w - 1, h);
-        }
+        bufCtx.drawImage(spectrogramBuffer, 1, 0, w - 1, h, 0, 0, w - 1, h);
         const colX = w - 1;
         for (let py = 0; py < h; py++) {
           const bin = Math.min(binCount - 1, Math.floor((1 - py / h) * binCount));
-          const value = Math.min(255, Math.round((analyserFrequencyData[bin] / 255) * masterGraphLevel * 255));
+          const value = analyserFrequencyData[bin];
           bufCtx.fillStyle = spectrogramColor(value);
           bufCtx.fillRect(colX, py, 1, 1);
         }
@@ -887,24 +705,13 @@ function updateMeterAndWaveform() {
         const cx = w / 2;
         const cy = h / 2;
         const scale = Math.min(w, h) * 0.85;
-        if (masterGoniometerGrid) {
-          ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-          ctx.lineWidth = 1;
-          ctx.beginPath();
-          ctx.moveTo(cx, 0); ctx.lineTo(cx, h);
-          ctx.moveTo(0, cy); ctx.lineTo(w, cy);
-          const r = scale * 0.5;
-          ctx.arc(cx, cy, r, 0, Math.PI * 2);
-          ctx.arc(cx, cy, scale, 0, Math.PI * 2);
-          ctx.stroke();
-        }
         const len = Math.min(analyserLDataArray.length, analyserRDataArray.length);
         ctx.strokeStyle = WAVEFORM_COLOR;
         ctx.lineWidth = 1;
         ctx.beginPath();
         for (let i = 0; i < len; i++) {
-          const l = Math.max(-1, Math.min(1, ((analyserLDataArray[i] - 128) / 128) * masterGraphLevel));
-          const r = Math.max(-1, Math.min(1, ((analyserRDataArray[i] - 128) / 128) * masterGraphLevel));
+          const l = (analyserLDataArray[i] - 128) / 128;
+          const r = (analyserRDataArray[i] - 128) / 128;
           const x = cx + l * scale;
           const y = cy - r * scale;
           if (i === 0) ctx.moveTo(x, y);
@@ -1053,14 +860,7 @@ function saveProject() {
         pan: row.pan ?? 0,
         mute: !!row.mute,
         solo: !!row.solo,
-        source: row.source
-          ? {
-              typeId: row.source.typeId,
-              ...(typeof row.source.instance.getSerializableState === 'function'
-                ? row.source.instance.getSerializableState()
-                : {}),
-            }
-          : null,
+        source: row.source ? { typeId: row.source.typeId } : null,
         chain: row.chain.map((s) => ({ typeId: s.typeId })),
       };
       return r;
@@ -1113,9 +913,6 @@ async function loadProject(file) {
     if (!r.source?.typeId) continue;
     const result = await addSourceRow(r.source.typeId);
     if (!result) continue;
-    if (typeof result.slot.instance.restoreState === 'function' && r.source) {
-      result.slot.instance.restoreState(r.source);
-    }
     setRowName(result.rowIndex, r.name || `Row ${ri + 1}`);
     setRowPan(result.rowIndex, r.pan ?? 0);
     setRowMute(result.rowIndex, !!r.mute);
