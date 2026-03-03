@@ -26,15 +26,26 @@ base.js は modules 直下に置き、全モジュールから `../base.js`（so
 | **source/fm-synth.js** | source | FM 音源。Carrier, Mod, Index, Gain。 |
 | **source/wavetable.js** | source | Wavetable。Wave A/B, Morph。Freq, Gain。 |
 | **source/noise.js** | source | ホワイトノイズ音源。Gain。 |
+| **source/pwm.js** | source | PWM オシレータ（AudioWorklet）。Freq, Pulse %, Gain。 |
+| **source/pluck.js** | source | Pluck（Karplus–Strong, AudioWorklet）。Freq, Decay, Gain。 |
+| **source/ff-osc.js** | source | FF-Osc。 |
+| **source/ff-wavetable.js** | source | FF-Wavetable。 |
 | **effect/reverb.js** | effect | リバーブ。Wet。 |
+| **effect/eq8.js** | effect | 8 バンド EQ。各バンド Gain/Freq/Q。 |
+| **effect/lpf.js** | effect | 1/2/4 次 CR ローパス。Freq, Order。 |
+| **effect/hpf.js** | effect | 1/2/4 次 CR ハイパス。Freq, Order。 |
+| **effect/lpf-res.js** | effect | Biquad ローパス＋レゾナンス。Freq, Res。 |
+| **effect/hpf-res.js** | effect | Biquad ハイパス＋レゾナンス。Freq, Res。 |
 | **modulator/lfo.js** | modulator | LFO。Wave, Rate, Depth。出力 → パラメータ。 |
+| **modulator/random-lfo.js** | modulator | Random LFO。出力 → パラメータ。 |
 | **modulator/envelope.js** | modulator | ADSR, Trigger（ボタン＋入力）。出力 → パラメータ。 |
-| **modulator/sequencer.js** | modulator | Seq-8 / Seq-16 / Seq-64。Pitch, Gate 出力、Sync In。上窓でステップ可視化。 |
+| **modulator/ad-envelope.js** | modulator | AD エンベロープ。出力 → パラメータ。 |
+| **modulator/sequencer.js** | modulator | Seq-8 / Seq-16 / Seq-32。1 段 8 ステップ。Pitch, Gate 出力、Sync In。上窓でステップ可視化。 |
 
 ## 依存
 
 - **main.js** が各モジュールを `./modules/source/xxx.js` 等で import し `registerModule()` で登録。
-- 各モジュールは **base.js**（`../base.js`）、**audio-core.js**（`../../audio-core.js`）、**cables.js**（`../../cables.js`）、**waveform-viz.js**（`../../waveform-viz.js`）を必要に応じて import。
+- 各モジュールは **base.js**（`../base.js`）、**audio-core.js**（`../../audio-core.js`）、**cables.js**（`../../cables.js`）、**waveform-viz.js**（`../../waveform-viz.js`）、**filter-response-viz.js**（`../../filter-response-viz.js`）を必要に応じて import。
 - **base.js** は JSDoc の `@type {import('../base.js').ModuleFactory}` 等で参照。
 
 詳細はルートの [docs/modules.md](../../docs/modules.md) を参照。

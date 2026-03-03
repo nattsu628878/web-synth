@@ -8,6 +8,7 @@
 import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { createOutputJack } from '../../cables.js';
+import { LFO_RANGE_MIN, LFO_RANGE_MAX } from '../../param-utils.js';
 
 const WAVE_TYPES = [
   { value: 'sine', label: 'Sine' },
@@ -16,7 +17,11 @@ const WAVE_TYPES = [
   { value: 'sawtooth', label: 'Saw' },
 ];
 
-/** 波形タイプと位相(0..2π)から値(-1..1)を返す */
+/**
+ * 波形タイプと位相(0..2π)から値(-1..1)を返す。
+ * 実際の LFO 出力は depth に応じてこの値に amp=(LFO_RANGE_MAX-LFO_RANGE_MIN)/2 * depth% をかけた -0.5～0.5。
+ * sine: 0→0.5→0→-0.5→0 (位相 0, π/2, π, 3π/2, 2π)。triangle: 0→1→0→-1→0。square/saw は 0 始まりではない。
+ */
 function waveValueAt(type, phase) {
   const t = phase / (2 * Math.PI);
   switch (type) {
@@ -33,10 +38,14 @@ function waveValueAt(type, phase) {
   }
 }
 
+/** LFO 窓の Y 軸の固定範囲（常に -0.5～0.5 を表示） */
+const LFO_VIZ_Y_RANGE = LFO_RANGE_MAX - LFO_RANGE_MIN;
+
 /**
- * LFO 専用ビジュアライザ: 1周期の波形を描画し、現在位置を軌跡＋マーカーで表示
+ * LFO 専用ビジュアライザ: 1周期の波形を描画し、現在位置を軌跡＋マーカーで表示。
+ * Y軸は常に -0.5～0.5 に固定。depth で波形の振幅だけが変わり、窓のスケールは変わらない。
  */
-function attachLfoViz(container, getWaveType, getFreqHz) {
+function attachLfoViz(container, getWaveType, getFreqHz, getDepthPercent) {
   const wrapper = document.createElement('div');
   wrapper.className = 'synth-module__waveform-viz synth-module__waveform-viz--lfo';
   const canvas = document.createElement('canvas');
@@ -74,8 +83,10 @@ function attachLfoViz(container, getWaveType, getFreqHz) {
     const graphW = w - padding * 2;
     const graphH = h - padding * 2;
     const baseY = padding + graphH / 2;
-    const scaleY = graphH / 2;
 
+    const depthPct = Math.max(0, Math.min(100, Number(getDepthPercent?.() ?? 100)));
+    const amp = (LFO_RANGE_MAX - LFO_RANGE_MIN) / 2 * (depthPct / 100);
+    const scaleY = graphH / LFO_VIZ_Y_RANGE;
     const toX = (t) => padding + t * graphW;
     const toY = (v) => baseY - v * scaleY;
 
@@ -95,7 +106,8 @@ function attachLfoViz(container, getWaveType, getFreqHz) {
     cctx.beginPath();
     for (let i = 0; i <= steps; i++) {
       const p = (i / steps) * 2 * Math.PI;
-      const v = waveValueAt(waveType, p);
+      const raw = waveValueAt(waveType, p);
+      const v = raw * amp;
       const x = toX(i / steps);
       const y = toY(v);
       if (i === 0) cctx.moveTo(x, y);
@@ -104,14 +116,15 @@ function attachLfoViz(container, getWaveType, getFreqHz) {
     cctx.stroke();
 
     const phaseNorm = phase / (2 * Math.PI);
-    const currentVal = waveValueAt(waveType, phase);
+    const currentVal = waveValueAt(waveType, phase) * amp;
 
     cctx.strokeStyle = '#628878';
     cctx.lineWidth = 2;
     cctx.beginPath();
     for (let i = 0; i <= steps * phaseNorm; i++) {
       const p = (i / steps) * 2 * Math.PI;
-      const v = waveValueAt(waveType, p);
+      const raw = waveValueAt(waveType, p);
+      const v = raw * amp;
       const x = toX(i / steps);
       const y = toY(v);
       if (i === 0) cctx.moveTo(x, y);
@@ -148,13 +161,14 @@ export const lfoModule = {
     name: 'LFO',
     kind: 'modulator',
     description: 'LFO (connect to params via cable)',
+    previewDescription: 'Signal: CV out (-0.5 to 0.5).\nLFO; rate, depth, wave type.',
   },
 
   create(instanceId) {
     const ctx = ensureAudioContext();
     const osc = ctx.createOscillator();
     const depthGain = ctx.createGain();
-    depthGain.gain.value = 0;
+    depthGain.gain.value = (LFO_RANGE_MAX - LFO_RANGE_MIN) / 2;
     osc.connect(depthGain);
     osc.type = 'sine';
     osc.frequency.value = 2;
@@ -204,7 +218,7 @@ export const lfoModule = {
     body.appendChild(freqRow);
     const depthRow = document.createElement('div');
     depthRow.className = 'synth-module__row';
-    depthRow.innerHTML = '<label class="synth-module__label">Depth</label><input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="0"><span class="synth-module__value">0 %</span>';
+    depthRow.innerHTML = '<label class="synth-module__label">Depth</label><input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="100"><span class="synth-module__value">100 %</span>';
     body.appendChild(depthRow);
     root.appendChild(body);
 
@@ -221,20 +235,43 @@ export const lfoModule = {
       freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
     });
     depthInput.addEventListener('input', () => {
-      const v = Number(depthInput.value) / 100;
-      depthGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
+      const depthPct = Number(depthInput.value) / 100;
+      const amp = (LFO_RANGE_MAX - LFO_RANGE_MIN) / 2 * depthPct;
+      depthGain.gain.setTargetAtTime(amp, ctx.currentTime, 0.01);
       depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
     freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
     depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
 
-    const viz = attachLfoViz(body, () => typeSelect.value, () => Number(freqInput.value) || 2);
+    const viz = attachLfoViz(body, () => typeSelect.value, () => Number(freqInput.value) || 2, () => Number(depthInput.value) || 0);
+
+    function getModulationValue() {
+      const freqHz = Math.max(0.1, Number(freqInput.value) || 2);
+      const phase = ((performance.now() / 1000) * freqHz * 2 * Math.PI) % (2 * Math.PI);
+      const depthPct = Number(depthInput.value) || 0;
+      const amp = (LFO_RANGE_MAX - LFO_RANGE_MIN) / 2 * (depthPct / 100);
+      return waveValueAt(typeSelect.value, phase) * amp;
+    }
+    function getModulationRange() {
+      const depthPct = Number(depthInput.value) || 0;
+      const amp = (LFO_RANGE_MAX - LFO_RANGE_MIN) / 2 * (depthPct / 100);
+      return { min: -amp, max: amp };
+    }
+    /** バー表示用: 緑の先端（ベース値）からのオフセット％。LFO は -0.5..0.5 で depth が幅 */
+    function getModulationRangePercent() {
+      const depth = Number(depthInput.value) || 0;
+      const half = depth / 2;
+      return { leftOffset: -half, rightOffset: half };
+    }
 
     return {
       element: root,
       getModulationOutput() {
         return depthGain;
       },
+      getModulationValue,
+      getModulationRange,
+      getModulationRangePercent,
       destroy() {
         viz.destroy();
         try {

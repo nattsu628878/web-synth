@@ -9,9 +9,14 @@ import {
   getRegisteredModules,
   getModuleFactory,
   replaceSlidersWithBars,
+  updateParamDisplayFromValue,
   addSourceRow,
   addEffectToRow,
-  addModulatorToRow,
+  addModulator,
+  getModulatorSlots,
+  getSlotIndex,
+  getSlotInstanceId,
+  MODULATOR_ROW,
   setRackContainer,
   setOnChainChange,
   setOnPanChange,
@@ -20,11 +25,10 @@ import {
   setRowPan,
   setRowMute,
   setRowSolo,
-  getSlotIndex,
-  getSlotInstanceId,
   clearRack,
   getRows,
 } from './rack.js';
+import { bindModulePreviewToPicker } from './module-preview.js';
 import { resumeContext, getMasterInput, getMasterAnalyser, getMasterAnalyserL, getMasterAnalyserR, ensureAudioContext } from './audio-core.js';
 import { sampleModule } from './modules/source/sample-module.js';
 import { waveformGeneratorModule } from './modules/source/waveform-generator.js';
@@ -36,6 +40,7 @@ import { pluckModule } from './modules/source/pluck.js';
 import { ffOscModule } from './modules/source/ff-osc.js';
 import { ffWavetableModule } from './modules/source/ff-wavetable.js';
 import { reverbModule } from './modules/effect/reverb.js';
+import { delayModule } from './modules/effect/delay.js';
 import { eq8Module } from './modules/effect/eq8.js';
 import { lpfModule } from './modules/effect/lpf.js';
 import { hpfModule } from './modules/effect/hpf.js';
@@ -45,8 +50,9 @@ import { lfoModule } from './modules/modulator/lfo.js';
 import { randomLfoModule } from './modules/modulator/random-lfo.js';
 import { envelopeModule } from './modules/modulator/envelope.js';
 import { adEnvelopeModule } from './modules/modulator/ad-envelope.js';
-import { sequencer8Module, sequencer16Module, sequencer64Module } from './modules/modulator/sequencer.js';
-import { initCables, redrawCables, getConnections, addConnectionFromLoad, clearAllConnections, createOutputJack, setCableDroop, getCableDroop } from './cables.js';
+import { sequencer8Module, sequencer16Module, sequencer32Module } from './modules/modulator/sequencer.js';
+import { initCables, redrawCables, scheduleRedrawCables, getConnections, addConnectionFromLoad, clearAllConnections, createOutputJack, setCableDroop, getCableDroop } from './cables.js';
+import { normToParam, paramToNorm, clampNorm } from './param-utils.js';
 
 // ---------- モジュール登録 ----------
 registerModule(sampleModule);
@@ -59,6 +65,7 @@ registerModule(pluckModule);
 registerModule(ffOscModule);
 registerModule(ffWavetableModule);
 registerModule(reverbModule);
+registerModule(delayModule);
 registerModule(eq8Module);
 registerModule(lpfModule);
 registerModule(hpfModule);
@@ -70,7 +77,7 @@ registerModule(envelopeModule);
 registerModule(adEnvelopeModule);
 registerModule(sequencer8Module);
 registerModule(sequencer16Module);
-registerModule(sequencer64Module);
+registerModule(sequencer32Module);
 
 // ---------- DOM ----------
 const rackContainer = document.getElementById('rackContainer');
@@ -81,73 +88,35 @@ const pickerSources = document.getElementById('pickerSources');
 const pickerEffects = document.getElementById('pickerEffects');
 const pickerModulators = document.getElementById('pickerModulators');
 const rowSelectForEffect = document.getElementById('rowSelectForEffect');
-const rowSelectForModulator = document.getElementById('rowSelectForModulator');
 const saveProjectBtn = document.getElementById('saveProjectBtn');
 const loadProjectInput = document.getElementById('loadProjectInput');
-const modulePreviewInner = document.getElementById('modulePreviewInner');
-const modulePreview = document.getElementById('modulePreview');
 
 setRackContainer(rackContainer);
 
-// ---------- モジュールプレビュー（ピッカー項目ホバーで右側に拡大縮小表示） ----------
-function showModulePreview(typeId) {
-  if (!modulePreviewInner || !modulePreview) return;
-  const factory = getModuleFactory(typeId);
-  if (!factory) return;
-  try {
-    const instance = factory.create(`preview-${typeId}-${Date.now()}`);
-    if (!instance?.element) return;
-    const clone = instance.element.cloneNode(true);
-    clone.classList.add('synth-module--preview');
-    replaceSlidersWithBars(clone);
-    modulePreviewInner.innerHTML = '';
-    modulePreviewInner.appendChild(clone);
-    modulePreview.classList.add('module-preview--active');
-    modulePreviewInner.style.width = '';
-    modulePreviewInner.style.height = '';
-    modulePreviewInner.style.transform = '';
-    requestAnimationFrame(() => {
-      const boxW = Math.max(0, modulePreview.clientWidth - 16);
-      const boxH = Math.max(0, modulePreview.clientHeight - 16);
-      const w = clone.offsetWidth || 1;
-      const h = clone.offsetHeight || 1;
-      const scale = (boxW > 0 && boxH > 0)
-        ? Math.min(boxW / w, boxH / h, 2)
-        : 1;
-      modulePreviewInner.style.width = `${w}px`;
-      modulePreviewInner.style.height = `${h}px`;
-      modulePreviewInner.style.transform = `scale(${scale})`;
-    });
-  } catch (_) {
-    modulePreviewInner.innerHTML = '';
-    modulePreview.classList.remove('module-preview--active');
-  }
-}
-
-function clearModulePreview() {
-  if (modulePreview) modulePreview.classList.remove('module-preview--active');
-  if (modulePreviewInner) {
-    modulePreviewInner.innerHTML = '';
-    modulePreviewInner.style.width = '';
-    modulePreviewInner.style.height = '';
-    modulePreviewInner.style.transform = '';
-  }
-}
-
-function bindModulePreviewToPicker(container) {
-  if (!container) return;
-  container.querySelectorAll('.synth-picker__item').forEach((btn) => {
-    const typeId = btn.dataset.typeId;
-    if (!typeId) return;
-    btn.addEventListener('mouseenter', () => showModulePreview(typeId));
-    btn.addEventListener('mouseleave', () => clearModulePreview());
-  });
-}
-
 // ---------- 数値表示ホバー＋スクロールで無段階変更 ----------
-// ラック内の .synth-module__value にホバーしながらホイールで対応スライダーを無段階変更
+// ラックおよび Modulators パネル内の .synth-module__value にホバーしながらホイールで対応スライダーを無段階変更。パンは .synth-rack__slot--pan 上でスクロール対応。
 const SCROLL_SENSITIVITY = 0.004; // レンジ幅に対する割合（1スクロールあたり・ゆっくり）
-rackContainer.addEventListener('wheel', (e) => {
+function handleParamValueWheel(e) {
+  // パン: 行のパン列（ノブやジャック付近）にホバー中にスクロールで 0–100 変更
+  const panSlot = e.target.closest('.synth-rack__slot--pan');
+  if (panSlot) {
+    const input = panSlot.querySelector('input[type="range"]');
+    if (!input || input.disabled) return;
+    e.preventDefault();
+    const min = 0;
+    const max = 100;
+    const range = max - min;
+    let current = parseFloat(input.value);
+    if (Number.isNaN(current)) current = 50;
+    const delta = -e.deltaY * range * SCROLL_SENSITIVITY;
+    const next = Math.max(min, Math.min(max, current + delta));
+    if (next === current) return;
+    input.setAttribute('step', 'any');
+    input.value = String(next);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    return;
+  }
+
   const valueEl = e.target.closest('.synth-module__value');
   if (!valueEl) return;
   if (valueEl.classList.contains('synth-module__step-pitch-value')) return;
@@ -155,19 +124,21 @@ rackContainer.addEventListener('wheel', (e) => {
   if (!row) return;
   const input = row.querySelector('input[type="range"]');
   if (!input) return;
+  if (input.disabled) return; /* SYNC 接続時など変更不可の場合は無視 */
   e.preventDefault();
   const min = parseFloat(input.min) || 0;
   const max = parseFloat(input.max) || 100;
   const range = max - min;
   if (range <= 0) return;
-  let current = parseFloat(input.value) || min;
+  const parsed = parseFloat(input.value);
+  const current = Number.isNaN(parsed) ? min : parsed;
   const delta = -e.deltaY * range * SCROLL_SENSITIVITY;
   const next = Math.max(min, Math.min(max, current + delta));
   if (next === current) return;
   input.setAttribute('step', 'any');
   input.value = String(next);
   input.dispatchEvent(new Event('input', { bubbles: true }));
-}, { passive: false });
+}
 
 setOnChainChange(async (rowIndex) => {
   await connectRowToMaster(rowIndex);
@@ -211,8 +182,11 @@ function getSlotAt(rowIndex, instanceId) {
   return row.chain.find((s) => s.instanceId === instanceId) ?? null;
 }
 
-/** 接続ごとのスケール用 GainNode（周波数など大きな値のパラメータ用） */
-const modulationScaleNodes = new Map();
+/** 変調駆動用: 接続先パラメータごとに1つの ConstantSource。紫のバー通りに実際の値を駆動。key: `${toRow}:${toSlotId}:${toParamId}` */
+const modulationDriveNodes = new Map();
+
+/** 変調の逆探知用: 接続先パラメータごとのモジュレータ一覧。key: `${toRow}:${toSlotId}:${toParamId}` */
+const modulationConnections = new Map();
 
 /** Gate → Trigger 接続時のコールバック管理（切断時に removeGateListener する用） */
 const triggerConnections = new Map();
@@ -220,6 +194,7 @@ const triggerConnections = new Map();
 /** マスター Sync の購読者（advanceStep を tick で呼ぶ）。key: `${toRow}-${toSlotId}` */
 const masterSyncReceivers = new Set();
 const masterSyncConnectionKeys = new Map();
+const masterSyncSequencerInstances = new Set();
 
 function connectionKey(fromRow, fromSlotId, toRow, toSlotId, toParamId) {
   return `${fromRow}:${fromSlotId}:${toRow}:${toSlotId}:${toParamId}`;
@@ -235,9 +210,10 @@ async function handleCableConnect(fromRow, fromSlotId, toRow, toSlotId, toParamI
   if (fromRow === -1 && fromSlotId === 'master' && fromOutputId === 'sync' && toParamId === 'syncIn') {
     const toSlot = getSlotAt(toRow, toSlotId);
     if (toSlot?.instance?.advanceStep && typeof toSlot.instance.setSyncConnected === 'function') {
-      toSlot.instance.setSyncConnected(true, masterTick);
+      toSlot.instance.setSyncConnected(true, masterTick, masterBPM);
       masterSyncReceivers.add(toSlot.instance.advanceStep);
       masterSyncConnectionKeys.set(`${toRow}-${toSlotId}`, toSlot.instance.advanceStep);
+      if (masterSyncSequencerInstances) masterSyncSequencerInstances.add(toSlot.instance);
     }
     return;
   }
@@ -281,18 +257,157 @@ async function handleCableConnect(fromRow, fromSlotId, toRow, toSlotId, toParamI
   if (!entry) return;
   try {
     await resumeContext();
-    const scale = entry.modulationScale ?? 1;
-    if (scale !== 1) {
-      const ctx = ensureAudioContext();
-      const gainNode = ctx.createGain();
-      gainNode.gain.value = scale;
-      out.connect(gainNode);
-      gainNode.connect(entry.param);
-      modulationScaleNodes.set(connectionKey(fromRow, fromSlotId, toRow, toSlotId, toParamId), gainNode);
-    } else {
-      out.connect(entry.param);
+    const connKey = `${toRow}:${toSlot.instanceId}:${toParamId}`;
+    let list = modulationConnections.get(connKey);
+    if (!list) {
+      list = [];
+      modulationConnections.set(connKey, list);
     }
+    list.push({ fromRow, fromSlotId: fromSlot.instanceId, fromOutputId });
+    if (list.length === 1) {
+      const ctx = ensureAudioContext();
+      const constantSource = ctx.createConstantSource();
+      constantSource.offset.value = 0;
+      constantSource.connect(entry.param);
+      constantSource.start(ctx.currentTime);
+      modulationDriveNodes.set(connKey, constantSource);
+    }
+    startModulationFeedbackLoop();
   } catch (_) {}
+}
+
+/** getModulatableParams の id を HTML の data-param に変換 */
+function getInputParamId(paramId) {
+  const m = String(paramId).match(/^(freq|gain|q)(\d+)$/);
+  if (m) return m[1];
+  const map = {
+    frequency: 'freq',
+    damping: 'decay',
+    wet: 'mix',
+    carrierFreq: 'carrier',
+    modFreq: 'modFreq',
+    q: 'res',
+  };
+  return map[paramId] ?? paramId;
+}
+
+/** パラメータ ID に応じたデフォルトの表示フォーマット */
+function defaultModulationFormatDisplay(paramId) {
+  const id = (paramId || '').toLowerCase();
+  if (id.includes('freq') || id === 'carrier' || id === 'modfreq') return (v) => `${Math.round(v)} Hz`;
+  if (id.includes('gain') && !id.includes('gain1')) return (v) => `${(Math.round(v * 10) / 10).toFixed(1)} dB`;
+  if (id.includes('q') || id.includes('res')) return (v) => String(Math.round(v * 100) / 100);
+  if (id.includes('mix') || id.includes('pulse') || id.includes('morph')) return (v) => `${Math.round(v)} %`;
+  if (id.includes('time')) return (v) => `${Math.round(v * 1000)} ms`;
+  if (id.includes('index')) return (v) => `${Math.round(v)} —`;
+  return (v) => String(Math.round(v * 10) / 10);
+}
+
+/** 変調の逆探知＋実際の値の駆動: 紫のバー通りに AudioParam を駆動し、表示も更新 */
+function tickModulationFeedback() {
+  for (const [key, list] of modulationConnections.entries()) {
+    if (!list.length) continue;
+    const parts = key.split(':');
+    if (parts.length < 3) continue;
+    const toRow = parseInt(parts[0], 10);
+    const toSlotId = parts[1];
+    const toParamId = parts.slice(2).join(':');
+    const slot = getSlotAt(toRow, toSlotId);
+    if (!slot?.instance?.element) continue;
+    const params = slot.instance.getModulatableParams?.();
+    if (!params?.length) continue;
+    const entry = params.find((p) => p.id === toParamId);
+    if (!entry) continue;
+    const inputParamId = getInputParamId(toParamId);
+    const input = slot.instance.element.querySelector(`input[data-param="${inputParamId}"]`);
+    const inputMin = input ? parseFloat(input.min) : 0;
+    const inputMax = input ? parseFloat(input.max) : 100;
+    const sliderValue = input
+      ? (Number.isNaN(parseFloat(input.value)) ? inputMin : parseFloat(input.value))
+      : inputMin;
+
+    const useParamMeta = Array.isArray(entry.range) && entry.range.length >= 2;
+    const displayRange = useParamMeta ? (entry.displayRange ?? entry.range) : [inputMin, inputMax];
+    const paramRange = useParamMeta ? entry.range : [inputMin, inputMax];
+
+    const baseNormFromModule = slot.instance.getParamBaseNorm?.(toParamId);
+    const baseNorm =
+      typeof baseNormFromModule === 'number' && !Number.isNaN(baseNormFromModule)
+        ? baseNormFromModule
+        : typeof entry.displayToNorm === 'function'
+          ? entry.displayToNorm(sliderValue)
+          : paramToNorm(sliderValue, displayRange);
+
+    let leftOffset = 0;
+    let rightOffset = 0;
+    let modulationSum = 0;
+    let hasRangeFromModulator = false;
+    for (const conn of list) {
+      const fromSlot = getSlotAt(conn.fromRow, conn.fromSlotId);
+      const getPercent = fromSlot?.instance?.getModulationRangePercent;
+      const getValue = fromSlot?.instance?.getModulationValue;
+      if (getPercent && typeof getPercent === 'function') {
+        const r = getPercent(conn.fromOutputId);
+        if (r && typeof r.leftOffset === 'number' && typeof r.rightOffset === 'number') {
+          hasRangeFromModulator = true;
+          leftOffset = Math.min(leftOffset, r.leftOffset);
+          rightOffset = Math.max(rightOffset, r.rightOffset);
+        }
+      }
+      if (getValue) {
+        const modVal = typeof getValue === 'function' ? getValue(conn.fromOutputId) : 0;
+        modulationSum += modVal;
+      }
+    }
+    // getModulationRangePercent を実装していないモジュレータ用のフォールバック（depth 0 の 0,0 は上書きしない）
+    if (list.length > 0 && !hasRangeFromModulator) {
+      leftOffset = -50;
+      rightOffset = 50;
+    }
+    const effectiveNorm = clampNorm(baseNorm + modulationSum);
+
+    const baseParamValue =
+      typeof entry.toParamValue === 'function'
+        ? entry.toParamValue(baseNorm)
+        : normToParam(baseNorm, paramRange);
+    const effectiveParamValue =
+      typeof entry.toParamValue === 'function'
+        ? entry.toParamValue(effectiveNorm)
+        : normToParam(effectiveNorm, paramRange);
+    const offsetAmount = effectiveParamValue - baseParamValue;
+
+    const driveNode = modulationDriveNodes.get(key);
+    if (driveNode && typeof driveNode.offset !== 'undefined') {
+      driveNode.offset.setTargetAtTime(offsetAmount, ensureAudioContext().currentTime, 0.01);
+    }
+
+    const formatDisplay = entry.format ?? entry.formatDisplay ?? defaultModulationFormatDisplay(toParamId);
+    const modRangeOffset =
+      leftOffset !== 0 || rightOffset !== 0 ? { leftOffset, rightOffset } : undefined;
+    const displayValueFromModule = slot.instance.getParamDisplayValue?.(toParamId);
+    const displayValueForNumber =
+      typeof displayValueFromModule === 'number' && !Number.isNaN(displayValueFromModule)
+        ? displayValueFromModule
+        : typeof entry.normToDisplayValue === 'function'
+          ? entry.normToDisplayValue(baseNorm)
+          : sliderValue;
+    if (slot.instance.shouldUpdateParamDisplay?.(toParamId) !== false) {
+      updateParamDisplayFromValue(slot.instance.element, inputParamId, baseNorm, displayValueForNumber, formatDisplay, modRangeOffset);
+    }
+  }
+  if (modulationConnections.size > 0) modulationFeedbackRafId = requestAnimationFrame(tickModulationFeedback);
+  else modulationFeedbackRafId = 0;
+}
+let modulationFeedbackRafId = 0;
+function startModulationFeedbackLoop() {
+  if (modulationFeedbackRafId) return;
+  modulationFeedbackRafId = requestAnimationFrame(tickModulationFeedback);
+}
+function stopModulationFeedbackLoop() {
+  if (modulationFeedbackRafId) {
+    cancelAnimationFrame(modulationFeedbackRafId);
+    modulationFeedbackRafId = 0;
+  }
 }
 
 /** ケーブル切断時: 接続を解除 */
@@ -305,7 +420,10 @@ function handleCableDisconnect(fromRow, fromSlotId, toRow, toSlotId, toParamId, 
       masterSyncConnectionKeys.delete(key);
     }
     const toSlot = getSlotAt(toRow, toSlotId);
-    if (toSlot?.instance?.setSyncConnected) toSlot.instance.setSyncConnected(false);
+    if (toSlot?.instance) {
+      if (masterSyncSequencerInstances) masterSyncSequencerInstances.delete(toSlot.instance);
+      if (toSlot.instance.setSyncConnected) toSlot.instance.setSyncConnected(false);
+    }
     return;
   }
 
@@ -337,29 +455,84 @@ function handleCableDisconnect(fromRow, fromSlotId, toRow, toSlotId, toParamId, 
   }
 
   if (!fromSlot?.instance.getModulationOutput) return;
-  const out = fromSlot.instance.getModulationOutput(fromOutputId);
-  if (!out) return;
   const params = toSlot?.instance.getModulatableParams?.();
   if (!params?.length) return;
   const entry = params.find((p) => p.id === toParamId);
   if (!entry) return;
-  try {
-    const key = connectionKey(fromRow, fromSlotId, toRow, toSlotId, toParamId);
-    const scaleNode = modulationScaleNodes.get(key);
-    if (scaleNode) {
-      out.disconnect(scaleNode);
-      scaleNode.disconnect(entry.param);
-      modulationScaleNodes.delete(key);
-    } else {
-      out.disconnect(entry.param);
+  const connKey = `${toRow}:${toSlot.instanceId}:${toParamId}`;
+  const connList = modulationConnections.get(connKey);
+  if (connList) {
+    const idx = connList.findIndex(
+      (c) => c.fromRow === fromRow && c.fromSlotId === fromSlot.instanceId && c.fromOutputId === fromOutputId
+    );
+    if (idx !== -1) connList.splice(idx, 1);
+    if (connList.length === 0) {
+      modulationConnections.delete(connKey);
+      const driveNode = modulationDriveNodes.get(connKey);
+      if (driveNode) {
+        try {
+          driveNode.disconnect(entry.param);
+          driveNode.stop();
+        } catch (_) {}
+        modulationDriveNodes.delete(connKey);
+        const inputParamId = getInputParamId(toParamId);
+        const input = toSlot.instance.element?.querySelector(`input[data-param="${inputParamId}"]`);
+        let baseVal = input
+          ? (Number.isNaN(parseFloat(input.value)) ? parseFloat(input.min) || 0 : parseFloat(input.value))
+          : 0;
+        const displayValueFromModule = toSlot.instance.getParamDisplayValue?.(toParamId);
+        if (typeof displayValueFromModule === 'number' && !Number.isNaN(displayValueFromModule)) {
+          baseVal = displayValueFromModule;
+        } else if (typeof entry.toParamValue === 'function' && input) {
+          const norm = typeof entry.displayToNorm === 'function'
+            ? entry.displayToNorm(baseVal)
+            : (parseFloat(input.min) || 0) === 0 && (parseFloat(input.max) || 100) === 100
+              ? baseVal / 100
+              : paramToNorm(baseVal, entry.displayRange ?? entry.range);
+          baseVal = entry.toParamValue(norm);
+        } else if (Array.isArray(entry.range) && entry.range.length >= 2 && input) {
+          const displayRange = entry.displayRange ?? entry.range;
+          const norm = paramToNorm(baseVal, displayRange);
+          baseVal = normToParam(norm, entry.range);
+        } else if (typeof entry.paramMin === 'number' && typeof entry.paramMax === 'number' && input) {
+          const smin = parseFloat(input.min) || 0;
+          const smax = parseFloat(input.max) || 100;
+          const srange = smax - smin;
+          const prange = entry.paramMax - entry.paramMin;
+          if (srange > 0 && prange !== 0) {
+            baseVal = entry.paramMin + ((baseVal - smin) / srange) * prange;
+          }
+        }
+        entry.param.setTargetAtTime(baseVal, ensureAudioContext().currentTime, 0.01);
+      }
+      const inputParamId = getInputParamId(toParamId);
+      const input = toSlot.instance.element?.querySelector(`input[data-param="${inputParamId}"]`);
+      if (input) {
+        const formatDisplay = entry.format ?? entry.formatDisplay ?? defaultModulationFormatDisplay(toParamId);
+        const val = Number.isNaN(parseFloat(input.value)) ? (parseFloat(input.min) || 0) : parseFloat(input.value);
+        const baseNormFromModule = toSlot.instance.getParamBaseNorm?.(toParamId);
+        const baseNormDisconnect =
+          typeof baseNormFromModule === 'number' && !Number.isNaN(baseNormFromModule)
+            ? baseNormFromModule
+            : typeof entry.displayToNorm === 'function'
+              ? entry.displayToNorm(val)
+              : (Array.isArray(entry.range) ? paramToNorm(val, entry.displayRange ?? entry.range) : (val - (parseFloat(input.min) || 0)) / ((parseFloat(input.max) || 100) - (parseFloat(input.min) || 0) || 1));
+        const displayVal = toSlot.instance.getParamDisplayValue?.(toParamId);
+        const displayValueForDisconnect = (typeof displayVal === 'number' && !Number.isNaN(displayVal)) ? displayVal : val;
+        updateParamDisplayFromValue(toSlot.instance.element, inputParamId, baseNormDisconnect, displayValueForDisconnect, formatDisplay, undefined);
+      }
     }
-  } catch (_) {}
+  }
 }
 
 const synthRackArea = rackContainer?.parentElement;
 if (synthRackArea) {
   initCables(synthRackArea, getRows, handleCableConnect, handleCableDisconnect);
-  rackContainer.addEventListener('scroll', redrawCables);
+  const rackScroll = rackContainer?.querySelector('.synth-rack__scroll');
+  if (rackScroll) rackScroll.addEventListener('scroll', scheduleRedrawCables);
+  synthRackArea.addEventListener('wheel', handleParamValueWheel, { passive: false });
+  const modulatorsRow = document.getElementById('modulatorsRow');
+  if (modulatorsRow) modulatorsRow.addEventListener('scroll', scheduleRedrawCables);
 }
 
 const cableDroopInput = document.getElementById('cableDroopInput');
@@ -420,6 +593,9 @@ if (masterBpmSlider && masterBpmValue) {
     masterBpmValue.textContent = String(Math.floor(masterBPM));
     updateMasterBpmBar();
     startMasterSyncInterval();
+    masterSyncSequencerInstances.forEach((inst) => {
+      if (typeof inst.setMasterBpm === 'function') inst.setMasterBpm(masterBPM);
+    });
   });
   masterBpmValue.textContent = String(masterBPM);
   updateMasterBpmBar();
@@ -811,19 +987,44 @@ function updateMeterAndWaveform() {
         masterSpectrumCanvas.height = h * dpr;
       }
       const ctx = masterSpectrumCanvas.getContext('2d');
-      if (ctx) {
+      const analyser = getMasterAnalyser();
+      if (ctx && analyser) {
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, w, h);
         const binCount = analyserFrequencyData.length;
-        const barW = Math.max(1, (w / binCount) - 0.5);
-        for (let i = 0; i < binCount; i++) {
-          const v = Math.min(1, (analyserFrequencyData[i] / 255) * masterGraphLevel);
-          const barH = Math.max(0, v * h * 0.95);
-          const x = (i / binCount) * w;
-          const y = h - barH;
-          ctx.fillStyle = WAVEFORM_COLOR;
-          ctx.fillRect(x, y, barW, barH);
+        const sampleRate = analyser.context.sampleRate;
+        const fMin = 20;
+        const fMax = Math.min(sampleRate / 2, 20000);
+        const logMin = Math.log(fMin);
+        const logMax = Math.log(fMax);
+        const numPoints = Math.min(512, Math.max(64, Math.floor(w / 2)));
+        const amp = h * 0.95;
+        const points = [];
+        for (let j = 0; j <= numPoints; j++) {
+          const t = j / numPoints;
+          const x = t * w;
+          const freq = Math.exp(logMin + t * (logMax - logMin));
+          const bin = (freq / sampleRate) * analyser.fftSize;
+          const binIdx = Math.min(binCount - 1, Math.max(0, Math.floor(bin)));
+          const v = Math.min(1, (analyserFrequencyData[binIdx] / 255) * masterGraphLevel);
+          const y = h - v * amp;
+          points.push({ x, y });
         }
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        points.forEach((p) => ctx.lineTo(p.x, p.y));
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        ctx.fillStyle = WAVEFORM_COLOR;
+        ctx.globalAlpha = 0.25;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = WAVEFORM_COLOR;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let k = 1; k < points.length; k++) ctx.lineTo(points[k].x, points[k].y);
+        ctx.stroke();
       }
     }
   }
@@ -1016,21 +1217,13 @@ function applyPanConnectionsForRow(rowIndex) {
 function updateRowSelects() {
   const rows = getRows();
   const prevEffectRow = rowSelectForEffect?.value ?? '0';
-  const prevModulatorRow = rowSelectForModulator?.value ?? '0';
-  const options = rows.map((row, i) => `<option value="${i}">${i + 1}. ${escapeHtml(row.name || `Row ${i + 1}`)}</option>`).join('');
-  const fallback = '<option value="0">(Add a row)</option>';
+  const options = rows.map((row, i) => `<option value="${i}">${i + 1}</option>`).join('');
+  const fallback = '<option value="0">1</option>';
   if (rowSelectForEffect) {
     rowSelectForEffect.innerHTML = options || fallback;
     const effectIndex = parseInt(prevEffectRow, 10);
     if (effectIndex >= 0 && effectIndex < rows.length) {
       rowSelectForEffect.value = String(effectIndex);
-    }
-  }
-  if (rowSelectForModulator) {
-    rowSelectForModulator.innerHTML = options || fallback;
-    const modulatorIndex = parseInt(prevModulatorRow, 10);
-    if (modulatorIndex >= 0 && modulatorIndex < rows.length) {
-      rowSelectForModulator.value = String(modulatorIndex);
     }
   }
 }
@@ -1041,30 +1234,100 @@ function escapeHtml(s) {
   return div.innerHTML;
 }
 
-// ---------- 保存・読み込み ----------
+// ---------- 保存・読み込み（パラメータ状態の収集・復元） ----------
+/** 収集対象のモジュールルートを取得（スロットの場合は内側の .synth-module を返す） */
+function getModuleRootForState(slotOrInstance) {
+  const instance = slotOrInstance.instance ?? slotOrInstance;
+  const raw = slotOrInstance.element ?? instance?.element;
+  if (!raw || !raw.querySelector) return null;
+  return raw.classList.contains('synth-module') ? raw : raw.querySelector('.synth-module') || raw;
+}
+
+/** モジュール要素から data-param 付き入力・select と Seq の gate を漏れなく収集（非表示スライダー含む） */
+function collectParamsFromElement(element) {
+  if (!element || !element.querySelectorAll) return {};
+  const state = {};
+  const inputs = element.querySelectorAll(
+    'input[data-param], select[data-param], input.synth-module__slider, select.synth-module__select'
+  );
+  inputs.forEach((el) => {
+    const param = el.getAttribute('data-param');
+    if (!param) return;
+    const step = el.dataset.step;
+    const bandFromParent = el.closest('[data-band]')?.getAttribute('data-band');
+    const suffix = step !== undefined ? `_${step}` : bandFromParent !== undefined ? `_${bandFromParent}` : '';
+    const key = param + suffix;
+    state[key] = el.type === 'checkbox' ? el.checked : el.value;
+  });
+  element.querySelectorAll('.synth-module__sequencer-viz-overlay-cell[data-step]').forEach((cell) => {
+    const step = cell.getAttribute('data-step');
+    state[`gate_${step}`] = cell.classList.contains('synth-module__step-pitch-cell--gate-on');
+  });
+  return state;
+}
+
+function findElementForParamKey(element, key) {
+  if (key.startsWith('gate_')) return null;
+  const lastUnderscore = key.lastIndexOf('_');
+  const suffix = lastUnderscore >= 0 && /^\d+$/.test(key.slice(lastUnderscore + 1)) ? key.slice(lastUnderscore + 1) : null;
+  const param = suffix !== null ? key.slice(0, lastUnderscore) : key;
+  if (suffix !== null) {
+    const byStep = element.querySelector(`[data-param="${param}"][data-step="${suffix}"]`);
+    if (byStep) return byStep;
+    const byBand = element.querySelector(`[data-band="${suffix}"] [data-param="${param}"]`);
+    if (byBand) return byBand;
+  }
+  return element.querySelector(`[data-param="${param}"]`);
+}
+
+function restoreStateToElement(element, state) {
+  for (const [key, value] of Object.entries(state)) {
+    if (key.startsWith('gate_')) continue;
+    const el = findElementForParamKey(element, key);
+    if (el && (el.value !== undefined || el.checked !== undefined)) {
+      if (typeof el.checked === 'boolean') el.checked = !!value;
+      else el.value = String(value);
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+}
+
+/** スロットまたはインスタンスから保存用状態を取得。モジュールルートから漏れなく収集し、getSerializableState があればマージ */
+function getModuleState(slotOrInstance) {
+  const instance = slotOrInstance.instance ?? slotOrInstance;
+  const root = getModuleRootForState(slotOrInstance);
+  if (!root) return {};
+  const fromEl = collectParamsFromElement(root);
+  const fromInstance = typeof instance?.getSerializableState === 'function' ? instance.getSerializableState() : {};
+  return { ...fromEl, ...fromInstance };
+}
+
+function restoreModuleState(instance, state) {
+  if (!state || typeof state !== 'object') return;
+  const root = instance?.element ? (instance.element.classList.contains('synth-module') ? instance.element : instance.element.querySelector('.synth-module') || instance.element) : null;
+  if (root) restoreStateToElement(root, state);
+  if (typeof instance.restoreState === 'function') instance.restoreState(state);
+}
+
 function saveProject() {
   const rows = getRows();
   const conns = getConnections();
   const data = {
     version: 1,
-    rows: rows.map((row) => {
+    rows: rows.filter((row) => row && row.rowIndex !== MODULATOR_ROW).map((row) => {
       const r = {
         name: row.name,
         pan: row.pan ?? 0,
         mute: !!row.mute,
         solo: !!row.solo,
         source: row.source
-          ? {
-              typeId: row.source.typeId,
-              ...(typeof row.source.instance.getSerializableState === 'function'
-                ? row.source.instance.getSerializableState()
-                : {}),
-            }
+          ? { typeId: row.source.typeId, ...getModuleState(row.source) }
           : null,
-        chain: row.chain.map((s) => ({ typeId: s.typeId })),
+        chain: row.chain.filter((s) => s.kind === 'effect').map((s) => ({ typeId: s.typeId, ...getModuleState(s) })),
       };
       return r;
     }),
+    modulators: getModulatorSlots().map((s) => ({ typeId: s.typeId, ...getModuleState(s) })),
     connections: conns.map((c) => ({
       fromRow: c.fromRow,
       fromSlotIndex: getSlotIndex(c.fromRow, c.fromSlotId),
@@ -1101,21 +1364,30 @@ async function loadProject(file) {
     return;
   }
   clearAllConnections();
-  modulationScaleNodes.clear();
+  for (const node of modulationDriveNodes.values()) {
+    try { node.stop(); } catch (_) {}
+  }
+  modulationDriveNodes.clear();
+  modulationConnections.clear();
   triggerConnections.clear();
   masterSyncReceivers.clear();
   masterSyncConnectionKeys.clear();
+  masterSyncSequencerInstances.clear();
+  stopModulationFeedbackLoop();
   clearRack();
 
   await resumeContext();
+  /** 廃止モジュールの型を新 ID にマッピング（例: sequencer-64 → sequencer-32） */
+  const resolveTypeId = (id) => (id === 'sequencer-64' ? 'sequencer-32' : id);
+  /** 旧形式: チェーン内の modulator の (fromRow, fromSlotIndex) → 新形式の modulator セクション内の slotIndex */
+  const oldModulatorSlotMap = {};
   for (let ri = 0; ri < data.rows.length; ri++) {
     const r = data.rows[ri];
     if (!r.source?.typeId) continue;
     const result = await addSourceRow(r.source.typeId);
     if (!result) continue;
-    if (typeof result.slot.instance.restoreState === 'function' && r.source) {
-      result.slot.instance.restoreState(r.source);
-    }
+    const { typeId: _t1, ...sourceState } = r.source || {};
+    restoreModuleState(result.slot.instance, sourceState);
     setRowName(result.rowIndex, r.name || `Row ${ri + 1}`);
     setRowPan(result.rowIndex, r.pan ?? 0);
     setRowMute(result.rowIndex, !!r.mute);
@@ -1124,25 +1396,47 @@ async function loadProject(file) {
       await connectRowToMaster(result.rowIndex);
     }
     const chain = r.chain || [];
+    let slotIndex = 1;
     for (const slot of chain) {
       if (!slot.typeId) continue;
-      const typeId = slot.typeId;
+      const typeId = resolveTypeId(slot.typeId);
       const factory = getRegisteredModules().find((m) => m.id === typeId);
       if (!factory) continue;
       if (factory.kind === 'effect') {
-        const s = await addEffectToRow(result.rowIndex, typeId);
-        if (s) await connectRowToMaster(result.rowIndex);
+        const effectSlot = await addEffectToRow(result.rowIndex, typeId);
+        if (effectSlot) {
+          const { typeId: _t2, ...effectState } = slot;
+          restoreModuleState(effectSlot.instance, effectState);
+          await connectRowToMaster(result.rowIndex);
+        }
       } else if (factory.kind === 'modulator') {
-        addModulatorToRow(result.rowIndex, typeId);
+        const added = addModulator(typeId);
+        if (added) oldModulatorSlotMap[`${ri},${slotIndex}`] = getSlotIndex(MODULATOR_ROW, added.instanceId);
       }
+      slotIndex++;
+    }
+  }
+  for (const m of data.modulators || []) {
+    if (!m?.typeId) continue;
+    const added = addModulator(resolveTypeId(m.typeId));
+    if (added) {
+      const { typeId: _t3, ...modState } = m;
+      restoreModuleState(added.instance, modState);
     }
   }
   const conns = data.connections || [];
   for (const c of conns) {
-    const fromId = getSlotInstanceId(c.fromRow, c.fromSlotIndex);
+    let fromRow = c.fromRow;
+    let fromSlotIndex = c.fromSlotIndex;
+    const oldKey = `${fromRow},${fromSlotIndex}`;
+    if (oldModulatorSlotMap[oldKey] !== undefined) {
+      fromRow = MODULATOR_ROW;
+      fromSlotIndex = oldModulatorSlotMap[oldKey];
+    }
+    const fromId = getSlotInstanceId(fromRow, fromSlotIndex);
     const toId = getSlotInstanceId(c.toRow, c.toSlotIndex);
     if (fromId && toId && c.toParamId) {
-      addConnectionFromLoad(c.fromRow, fromId, c.toRow, toId, c.toParamId, c.fromOutputId);
+      addConnectionFromLoad(fromRow, fromId, c.toRow, toId, c.toParamId, c.fromOutputId);
     }
   }
   const rows = getRows();
@@ -1226,10 +1520,7 @@ function renderModulatorPicker() {
     btn.textContent = m.name;
     btn.dataset.typeId = m.id;
     btn.addEventListener('click', async () => {
-      const rowIndex = parseInt(rowSelectForModulator?.value ?? '0', 10);
-      const rows = getRows();
-      if (rowIndex < 0 || rowIndex >= rows.length) return;
-      const slot = addModulatorToRow(rowIndex, m.id);
+      const slot = addModulator(m.id);
       if (!slot) return;
       redrawCables();
       updateRowSelects();

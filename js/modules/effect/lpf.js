@@ -7,6 +7,7 @@
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachFilterResponseViz } from '../../filter-response-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam } from '../../param-utils.js';
 
 const FREQ_MIN = 20;
 const FREQ_MAX = 20000;
@@ -22,6 +23,16 @@ function freqToValue(hz) {
 function formatFreq(hz) {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
   return `${Math.round(hz)} Hz`;
+}
+/** Hz → 0–1 対数 norm（バー表示をスライダーと統一） */
+function freqToNorm01(hz) {
+  const h = Math.max(FREQ_MIN, Math.min(FREQ_MAX, hz));
+  return Math.log(h / FREQ_MIN) / Math.log(FREQ_MAX / FREQ_MIN);
+}
+/** 0–1 対数 norm → Hz */
+function normToFreq(norm) {
+  const n = Math.max(0, Math.min(1, norm));
+  return FREQ_MIN * Math.pow(FREQ_MAX / FREQ_MIN, n);
 }
 
 /** プレビュー用：音声ノードなしで実モジュールと同じ見た目の DOM を生成 */
@@ -85,6 +96,7 @@ export const lpfModule = {
     name: 'LPF',
     kind: 'effect',
     description: '1st/2nd-order RC low-pass filter (Freq, Order)',
+    previewDescription: 'Signal: audio in/out.\nLow-pass; cutoff, order 1/2/4.',
   },
 
   create(instanceId) {
@@ -209,10 +221,27 @@ export const lpfModule = {
       element: root,
       getAudioInput() { return inputGain; },
       getAudioOutput() { return outputGain; },
+      getParamBaseNorm(paramId) {
+        if (paramId === 'frequency') return freqToNorm01(getCutoff());
+        return undefined;
+      },
+      getParamDisplayValue(paramId) {
+        if (paramId === 'frequency') return getCutoff();
+        return undefined;
+      },
       getModulatableParams() {
         const param = order === 1 ? filter1.parameters.get('cutoff') : order === 2 ? filter2.parameters.get('cutoff') : filter4.parameters.get('cutoff');
         return [
-          { id: 'frequency', name: 'Freq', param, modulationScale: 2000 },
+          {
+            id: 'frequency',
+            name: 'Freq',
+            param,
+            range: [0, 1],
+            displayRange: [FREQ_MIN, FREQ_MAX],
+            format: (v) => formatFreq(v),
+            normToDisplayValue: (norm) => normToFreq(norm),
+            toParamValue: (norm) => normToFreq(norm),
+          },
         ];
       },
       destroy() {

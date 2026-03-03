@@ -16,10 +16,13 @@ function randomBipolar() {
 
 const RANDOM_LFO_HISTORY_LENGTH = 80;
 
+/** Random LFO 窓の Y 軸の固定範囲（LFO と同様 -0.5～0.5） */
+const RANDOM_LFO_VIZ_Y_RANGE = 1;
+
 /**
- * Random LFO 専用ビジュアライザ: 過去の値をステップ状に描画し、現在位置を右端に表示
+ * Random LFO 専用ビジュアライザ: 過去の値をステップ状に描画。Y軸は -0.5～0.5 固定で depth で振幅が変わる。
  */
-function attachRandomLfoViz(container, getHistory, getValue) {
+function attachRandomLfoViz(container, getHistory, getValue, getDepthPercent) {
   const wrapper = document.createElement('div');
   wrapper.className = 'synth-module__waveform-viz synth-module__waveform-viz--random-lfo';
   const canvas = document.createElement('canvas');
@@ -55,7 +58,9 @@ function attachRandomLfoViz(container, getHistory, getValue) {
     const graphW = w - padding * 2;
     const graphH = h - padding * 2;
     const baseY = padding + graphH / 2;
-    const scaleY = graphH / 2;
+    const depthPct = Math.max(0, Math.min(100, Number(getDepthPercent?.() ?? 100)));
+    const amp = 0.5 * (depthPct / 100);
+    const scaleY = graphH / RANDOM_LFO_VIZ_Y_RANGE;
     const toY = (v) => baseY - v * scaleY;
 
     const history = getHistory();
@@ -69,7 +74,7 @@ function attachRandomLfoViz(container, getHistory, getValue) {
       cctx.beginPath();
       for (let i = 0; i < len; i++) {
         const x = padding + (i / maxLen) * graphW;
-        const v = history[i];
+        const v = (history[i] ?? 0) * amp;
         const y = toY(v);
         if (i === 0) cctx.moveTo(x, y);
         else cctx.lineTo(x, y);
@@ -85,7 +90,7 @@ function attachRandomLfoViz(container, getHistory, getValue) {
       cctx.beginPath();
       for (let i = 0; i < len; i++) {
         const x = padding + (i / maxLen) * graphW;
-        const v = history[i];
+        const v = (history[i] ?? 0) * amp;
         const y = toY(v);
         if (i === 0) cctx.moveTo(x, y);
         else cctx.lineTo(x, y);
@@ -97,7 +102,7 @@ function attachRandomLfoViz(container, getHistory, getValue) {
       cctx.stroke();
 
       const curX = padding + ((len - 1) / maxLen) * graphW;
-      const curY = toY(currentVal);
+      const curY = toY((currentVal ?? 0) * amp);
       cctx.fillStyle = '#628878';
       cctx.beginPath();
       cctx.arc(curX, curY, 3, 0, Math.PI * 2);
@@ -127,6 +132,7 @@ export const randomLfoModule = {
     name: 'Random LFO',
     kind: 'modulator',
     description: 'Sample & hold style random LFO (Rate, Depth)',
+    previewDescription: 'Signal: CV out.\nRandom steps; rate and depth.',
   },
 
   create(instanceId) {
@@ -136,7 +142,7 @@ export const randomLfoModule = {
     constantSource.start(ctx.currentTime);
 
     const depthGain = ctx.createGain();
-    depthGain.gain.value = 0;
+    depthGain.gain.value = 0.5;
     constantSource.connect(depthGain);
 
     const root = document.createElement('div');
@@ -180,8 +186,8 @@ export const randomLfoModule = {
     depthRow.className = 'synth-module__row';
     depthRow.innerHTML = `
       <label class="synth-module__label">Depth</label>
-      <input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="0">
-      <span class="synth-module__value">0 %</span>
+      <input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="100">
+      <span class="synth-module__value">100 %</span>
     `;
     body.appendChild(depthRow);
 
@@ -216,8 +222,9 @@ export const randomLfoModule = {
       startInterval();
     });
     depthInput.addEventListener('input', () => {
-      const v = Number(depthInput.value) / 100;
-      depthGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
+      const depthPct = Number(depthInput.value) / 100;
+      const amp = 0.5 * depthPct;
+      depthGain.gain.setTargetAtTime(amp, ctx.currentTime, 0.01);
       depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
 
@@ -229,14 +236,33 @@ export const randomLfoModule = {
     const viz = attachRandomLfoViz(
       body,
       () => [...history],
-      () => currentValue
+      () => currentValue,
+      () => Number(depthInput.value) || 0
     );
+
+    function getModulationValue() {
+      const amp = 0.5 * (Number(depthInput.value) / 100);
+      return currentValue * amp;
+    }
+    function getModulationRange() {
+      const amp = 0.5 * (Number(depthInput.value) / 100);
+      return { min: -amp, max: amp };
+    }
+    /** バー表示用: 緑の先端からのオフセット％。LFO と同様前後に振れる */
+    function getModulationRangePercent() {
+      const depth = Number(depthInput.value) || 0;
+      const half = depth / 2;
+      return { leftOffset: -half, rightOffset: half };
+    }
 
     return {
       element: root,
       getModulationOutput() {
         return depthGain;
       },
+      getModulationValue,
+      getModulationRange,
+      getModulationRangePercent,
       destroy() {
         if (intervalId != null) {
           clearInterval(intervalId);

@@ -7,6 +7,7 @@ import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-utils.js';
 
 const WAVE_TYPES = [
   { value: 'sine', label: 'Sine' },
@@ -22,6 +23,7 @@ export const waveformGeneratorModule = {
     name: 'Osc',
     kind: 'source',
     description: 'Oscillator (sine / square / sawtooth / triangle)',
+    previewDescription: 'Signal: 1 audio out.\nBasic oscillator; freq and gain.',
   },
 
   create(instanceId) {
@@ -83,6 +85,7 @@ export const waveformGeneratorModule = {
     const freqInput = document.createElement('input');
     freqInput.type = 'range';
     freqInput.className = 'synth-module__slider';
+    freqInput.setAttribute('data-param', 'freq');
     freqInput.min = '20';
     freqInput.max = '20000';
     freqInput.step = '1';
@@ -107,6 +110,7 @@ export const waveformGeneratorModule = {
     const gainInput = document.createElement('input');
     gainInput.type = 'range';
     gainInput.className = 'synth-module__slider';
+    gainInput.setAttribute('data-param', 'gain');
     gainInput.min = '0';
     gainInput.max = '100';
     gainInput.step = '1';
@@ -135,12 +139,16 @@ export const waveformGeneratorModule = {
     waveSelect.addEventListener('change', () => {
       osc.type = waveSelect.value;
     });
+    const freqRange = [20, 20000];
+    const gainDef = PARAM_DEFS.gain;
     freqInput.addEventListener('input', () => {
-      osc.frequency.setTargetAtTime(Number(freqInput.value), ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(freqInput.value), freqRange);
+      osc.frequency.setTargetAtTime(normToParam(norm, freqRange), ctx.currentTime, 0.01);
       updateFreqLabel();
     });
     gainInput.addEventListener('input', () => {
-      gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      gainNode.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
       updateGainLabel();
     });
 
@@ -160,8 +168,8 @@ export const waveformGeneratorModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'frequency', name: 'Freq', param: osc.frequency, modulationScale: 100 },
-          { id: 'gain', name: 'Gain', param: gainNode.gain },
+          { id: 'frequency', name: 'Freq', param: osc.frequency, range: [20, 20000], displayRange: [20, 20000], format: ParamFormat.freq },
+          { id: 'gain', name: 'Gain', param: gainNode.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {

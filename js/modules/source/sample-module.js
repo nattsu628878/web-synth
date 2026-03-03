@@ -13,6 +13,7 @@ export const sampleModule = {
     name: 'Sample',
     kind: 'source',
     description: 'Sample module (placeholder for UI)',
+    previewDescription: 'Signal: 1 audio out, trigger in.\nSample playback; load and trigger.',
   },
 
   /**

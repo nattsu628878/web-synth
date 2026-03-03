@@ -8,6 +8,7 @@ import { formatParamValue } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS } from '../../param-utils.js';
 
 /**
  * 簡易リバーブ用インパルス応答を生成（指数減衰ノイズ）
@@ -37,6 +38,7 @@ export const reverbModule = {
     name: 'Reverb',
     kind: 'effect',
     description: 'Reverb (ConvolverNode)',
+    previewDescription: 'Signal: audio in/out.\nReverb; dry/wet blend.',
   },
 
   create(instanceId) {
@@ -91,11 +93,13 @@ export const reverbModule = {
 
     const mixInput = body.querySelector('[data-param="mix"]');
     const mixValue = body.querySelector('.synth-module__value');
+    const wetDef = PARAM_DEFS.percent;
     mixInput.addEventListener('input', () => {
-      const w = Number(mixInput.value) / 100;
+      const norm = paramToNorm(Number(mixInput.value), wetDef.displayRange);
+      const w = normToParam(norm, wetDef.range);
       wetGain.gain.setTargetAtTime(w, ctx.currentTime, 0.01);
       dryGain.gain.setTargetAtTime(1 - w, ctx.currentTime, 0.01);
-      mixValue.textContent = `${formatParamValue(mixInput.value)} %`;
+      mixValue.textContent = wetDef.format(Number(mixInput.value));
     });
     mixValue.textContent = '30 %';
 
@@ -111,7 +115,7 @@ export const reverbModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'wet', name: 'Wet', param: wetGain.gain },
+          { id: 'wet', name: 'Wet', param: wetGain.gain, ...PARAM_DEFS.percent },
         ];
       },
       destroy() {

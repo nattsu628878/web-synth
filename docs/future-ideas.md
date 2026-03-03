@@ -64,13 +64,12 @@
 
 ---
 
-## 3. ドキュメント・コード品質（memo / report より）
+## 3. ドキュメント・コード品質
 
 | 項目 | 内容 |
 |------|------|
-| **信号処理の解説 md** | 信号処理をしている部分を抽出し、解説用の md を作る（勉強用）。 |
-| **未使用 API の整理** | report.md の「不要・未使用」に挙がった関数（`getSlotOrder`, `disconnectParam`, `getDestination`, `getSampleRate`, `getCurrentTime`, `createGain`）の削除 or 予約コメント。 |
-| **PITCH_PARAM_IDS の利用** | ピッチ用ジャックの色分けを使うなら、該当 paramId を追加。使わないなら判定ロジックを整理。 |
+| **信号処理の解説** | 信号処理をしている部分を抽出し、解説用の md を作る（勉強用）。 |
+| **PITCH_PARAM_IDS** | ピッチ用ジャックの色分け。cables.js の PITCH_PARAM_IDS に paramId を追加済み（frequency, carrierFreq, modFreq, pitch）。 |
 
 ---
 
@@ -97,7 +96,7 @@
 ## 6. 優先度の目安（例）
 
 - **すぐ効く**: Stereo Delay か Distortion、Sub、Sample & Hold、レベルメータのステレオ化。
-- **memo と一致**: Stereo Delay, Chorus, Flanger, Phaser, Distortion, Compressor。
-- **勉強・保守**: 信号処理解説 md、未使用 API 整理、PITCH_PARAM_IDS の決定。
+- **エフェクト**: Stereo Delay, Chorus, Flanger, Phaser, Distortion, Compressor。
+- **勉強・保守**: 信号処理解説 md。
 
 必要に応じて「モジュール追加」「UI 改善」「ドキュメント」「保存形式」など、着手したい軸を決めてから個別に詳細を詰めると進めやすい。

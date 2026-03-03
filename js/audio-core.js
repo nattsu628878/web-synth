@@ -48,15 +48,6 @@ export async function resumeContext() {
 }
 
 /**
- * マスター出力（Destination）を取得
- * @returns {AudioDestinationNode}
- */
-export function getDestination() {
-  const ctx = ensureAudioContext();
-  return ctx.destination;
-}
-
-/**
  * マスター入力（音源モジュールをここに接続する GainNode）
  * @returns {GainNode}
  */
@@ -104,36 +95,6 @@ export function getMasterAnalyserL() {
  */
 export function getMasterAnalyserR() {
   return masterAnalyserR;
-}
-
-/**
- * GainNode を新規作成
- * @param {number} [gain=1]
- * @returns {GainNode}
- */
-export function createGain(gain = 1) {
-  const ctx = ensureAudioContext();
-  const node = ctx.createGain();
-  node.gain.value = gain;
-  return node;
-}
-
-/**
- * サンプルレートを取得
- * @returns {number}
- */
-export function getSampleRate() {
-  const ctx = getAudioContext();
-  return ctx ? ctx.sampleRate : 44100;
-}
-
-/**
- * 現在時刻（再生時間）を取得
- * @returns {number}
- */
-export function getCurrentTime() {
-  const ctx = getAudioContext();
-  return ctx ? ctx.currentTime : 0;
 }
 
 /** @type {Promise<void>|null} */

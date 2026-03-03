@@ -13,6 +13,7 @@ export const ffWavetableModule = {
     name: 'FF-Wavetable',
     kind: 'source',
     description: 'Freeform wavetable (morph between two drawn waveforms)',
+    previewDescription: 'Signal: 1 audio out.\nTwo drawn waves; morph between A/B.',
   },
 
   /**

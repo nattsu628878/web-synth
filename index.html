@@ -30,42 +30,57 @@
     <div class="picker-and-preview">
       <div class="synth-picker" id="modulePicker">
         <div class="synth-picker__group">
-          <span class="synth-picker__label">Sources (new row)</span>
+          <span class="synth-picker__label">SOURCES</span>
           <div class="synth-picker__list-scroll">
             <div class="synth-picker__list synth-picker__list--source" id="pickerSources"></div>
           </div>
         </div>
         <div class="synth-picker__group">
-          <span class="synth-picker__label">Effects</span>
-          <div class="synth-picker__row-choice">
-            <span class="synth-picker__row-label">Add to row</span>
-            <select class="synth-picker__row-select" id="rowSelectForEffect" aria-label="Target row for effect"></select>
+          <div class="synth-picker__group-heading">
+            <span class="synth-picker__label">EFFECTS</span>
+            <div class="synth-picker__row-choice">
+              <span class="synth-picker__row-label">Add to row</span>
+              <select class="synth-picker__row-select" id="rowSelectForEffect" aria-label="Target row for effect"></select>
+            </div>
           </div>
           <div class="synth-picker__list-scroll">
             <div class="synth-picker__list synth-picker__list--effect" id="pickerEffects"></div>
           </div>
         </div>
         <div class="synth-picker__group">
-          <span class="synth-picker__label">Modulators</span>
-          <div class="synth-picker__row-choice">
-            <span class="synth-picker__row-label">Add to row</span>
-            <select class="synth-picker__row-select" id="rowSelectForModulator" aria-label="Target row for modulator"></select>
-          </div>
+          <span class="synth-picker__label">MODULATORS</span>
           <div class="synth-picker__list-scroll">
             <div class="synth-picker__list synth-picker__list--modulator" id="pickerModulators"></div>
           </div>
         </div>
       </div>
-      <div class="module-preview" id="modulePreview" aria-live="polite" aria-label="Module preview">
-        <span class="module-preview__placeholder" id="modulePreviewPlaceholder">Hover a module to preview</span>
-        <div class="module-preview__inner" id="modulePreviewInner"></div>
+      <div class="module-preview-wrapper" id="modulePreviewWrapper">
+        <div class="module-preview" id="modulePreview" aria-live="polite" aria-label="Module preview">
+          <span class="module-preview__placeholder" id="modulePreviewPlaceholder">Hover a module to preview</span>
+          <div class="module-preview__content">
+            <div class="module-preview__inner" id="modulePreviewInner"></div>
+            <div class="module-preview__description" id="modulePreviewDescription" aria-live="polite"></div>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- ラック＋右パネル（同じ高さ） -->
+    <!-- ラック＋modulator 専用ライン＋マスター（同じ高さ） -->
     <div class="synth-rack-area">
-      <div class="synth-rack" id="rackContainer"></div>
+      <div class="synth-rack" id="rackContainer">
+        <div class="synth-rack__row synth-rack__header-row" aria-hidden="true">
+          <div class="synth-rack__col synth-rack__col--pan"></div>
+          <div class="synth-rack__col synth-rack__col--source"><span class="synth-rack__section-title">SOURCES</span></div>
+          <div class="synth-rack__col synth-rack__col--chain"><span class="synth-rack__section-title">EFFECTS</span></div>
+        </div>
+        <div class="synth-rack__scroll" aria-label="Rack rows"></div>
+      </div>
+      <aside class="synth-modulators-panel" aria-label="Modulators">
+        <div class="synth-modulators-panel__title">MODULATORS</div>
+        <div class="synth-rack__row synth-modulators-panel__row" id="modulatorsRow" data-row-index="-2"></div>
+      </aside>
       <aside class="synth-master-panel" aria-label="Master output">
+        <div class="synth-master-panel__title">MASTER</div>
         <div class="synth-master-sync">
           <div class="synth-master-sync__row">
             <label class="synth-master-sync__label" for="masterBpm">BPM</label>

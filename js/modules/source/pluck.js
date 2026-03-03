@@ -8,6 +8,7 @@ import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-utils.js';
 
 /** プレビュー用：AudioWorklet なしで同じ見た目の DOM を生成 */
 function buildPluckDomOnly(silentGainNode) {
@@ -86,6 +87,7 @@ export const pluckModule = {
     name: 'Pluck',
     kind: 'source',
     description: 'Karplus–Strong pluck (Freq, Decay, Gain, Trigger)',
+    previewDescription: 'Signal: 1 audio out, gate in.\nPluck; trigger starts note.',
   },
 
   create(instanceId) {
@@ -208,18 +210,23 @@ export const pluckModule = {
       pluckNode.port.postMessage({ type: 'trigger' });
     }
 
+    const freqRange = [20, 2000];
+    const decayDisplayRange = [30, 99];
+    const decayParamRange = [0, 1];
+    const gainDef = PARAM_DEFS.gain;
     freqInput.addEventListener('input', () => {
-      const v = Number(freqInput.value);
-      pluckNode.parameters.get('frequency').setTargetAtTime(v, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(freqInput.value), freqRange);
+      pluckNode.parameters.get('frequency').setTargetAtTime(normToParam(norm, freqRange), ctx.currentTime, 0.01);
       updateFreqLabel();
     });
     decayInput.addEventListener('input', () => {
-      const v = Number(decayInput.value) / 100;
-      pluckNode.parameters.get('damping').setTargetAtTime(v, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(decayInput.value), decayDisplayRange);
+      pluckNode.parameters.get('damping').setTargetAtTime(normToParam(norm, decayParamRange), ctx.currentTime, 0.01);
       updateDecayLabel();
     });
     gainInput.addEventListener('input', () => {
-      gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      gainNode.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
       updateGainLabel();
     });
     triggerBtn.addEventListener('click', fireTrigger);
@@ -241,9 +248,9 @@ export const pluckModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'frequency', name: 'Freq', param: pluckNode.parameters.get('frequency'), modulationScale: 100 },
-          { id: 'damping', name: 'Decay', param: pluckNode.parameters.get('damping'), modulationScale: 0.5 },
-          { id: 'gain', name: 'Gain', param: gainNode.gain },
+          { id: 'frequency', name: 'Freq', param: pluckNode.parameters.get('frequency'), range: freqRange, displayRange: freqRange, format: ParamFormat.freq },
+          { id: 'damping', name: 'Decay', param: pluckNode.parameters.get('damping'), range: decayParamRange, displayRange: decayDisplayRange, format: ParamFormat.percent },
+          { id: 'gain', name: 'Gain', param: gainNode.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {

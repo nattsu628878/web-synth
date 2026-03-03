@@ -8,6 +8,7 @@ import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-utils.js';
 
 /** プレビュー用：AudioWorklet なしで同じ見た目の DOM を生成 */
 function buildPwmDomOnly(silentGainNode) {
@@ -78,6 +79,7 @@ export const pwmModule = {
     name: 'PWM',
     kind: 'source',
     description: 'Pulse width modulation oscillator (Freq, Pulse %, Gain)',
+    previewDescription: 'Signal: 1 audio out.\nPWM square; width changes timbre.',
   },
 
   create(instanceId) {
@@ -185,18 +187,22 @@ export const pwmModule = {
       gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
     }
 
+    const freqRange = [20, 20000];
+    const pwDef = PARAM_DEFS.pulseWidth;
+    const gainDef = PARAM_DEFS.gain;
     freqInput.addEventListener('input', () => {
-      const v = Number(freqInput.value);
-      pwmNode.parameters.get('frequency').setTargetAtTime(v, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(freqInput.value), freqRange);
+      pwmNode.parameters.get('frequency').setTargetAtTime(normToParam(norm, freqRange), ctx.currentTime, 0.01);
       updateFreqLabel();
     });
     pwInput.addEventListener('input', () => {
-      const v = Number(pwInput.value) / 100;
-      pwmNode.parameters.get('pulseWidth').setTargetAtTime(v, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(pwInput.value), pwDef.displayRange);
+      pwmNode.parameters.get('pulseWidth').setTargetAtTime(normToParam(norm, pwDef.range), ctx.currentTime, 0.01);
       updatePwLabel();
     });
     gainInput.addEventListener('input', () => {
-      gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      gainNode.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
       updateGainLabel();
     });
 
@@ -214,9 +220,9 @@ export const pwmModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'frequency', name: 'Freq', param: pwmNode.parameters.get('frequency'), modulationScale: 100 },
-          { id: 'pulseWidth', name: 'Pulse %', param: pwmNode.parameters.get('pulseWidth'), modulationScale: 0.5 },
-          { id: 'gain', name: 'Gain', param: gainNode.gain },
+          { id: 'frequency', name: 'Freq', param: pwmNode.parameters.get('frequency'), range: freqRange, displayRange: freqRange, format: ParamFormat.freq },
+          { id: 'pulseWidth', name: 'Pulse %', param: pwmNode.parameters.get('pulseWidth'), ...PARAM_DEFS.pulseWidth },
+          { id: 'gain', name: 'Gain', param: gainNode.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {

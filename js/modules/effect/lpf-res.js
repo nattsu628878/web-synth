@@ -7,6 +7,7 @@
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachFilterResponseViz } from '../../filter-response-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS } from '../../param-utils.js';
 
 const FREQ_MIN = 20;
 const FREQ_MAX = 20000;
@@ -25,6 +26,16 @@ function formatFreq(hz) {
   if (hz >= 1000) return `${(hz / 1000).toFixed(2)} kHz`;
   return `${Math.round(hz)} Hz`;
 }
+/** Hz → 0–1 対数 norm（バー表示をスライダーと統一） */
+function freqToNorm01(hz) {
+  const h = Math.max(FREQ_MIN, Math.min(FREQ_MAX, hz));
+  return Math.log(h / FREQ_MIN) / Math.log(FREQ_MAX / FREQ_MIN);
+}
+/** 0–1 対数 norm → Hz */
+function normToFreq(norm) {
+  const n = Math.max(0, Math.min(1, norm));
+  return FREQ_MIN * Math.pow(FREQ_MAX / FREQ_MIN, n);
+}
 function formatQ(q) {
   return q === 0 ? '0' : Number(q).toFixed(2);
 }
@@ -36,6 +47,7 @@ export const lpfResModule = {
     name: 'LPF Res',
     kind: 'effect',
     description: 'Low-pass filter with resonance (Freq, Res)',
+    previewDescription: 'Signal: audio in/out.\nResonant LPF; cutoff and Q.',
   },
 
   create(instanceId) {
@@ -88,6 +100,8 @@ export const lpfResModule = {
     freqRow.appendChild(freqJackWrap);
     const freqInput = freqRow.querySelector('[data-param="freq"]');
     const freqValue = freqRow.querySelector('.synth-module__value');
+    const freqRange = [FREQ_MIN, FREQ_MAX];
+    const freqDisplayRange = [0, 100];
     freqInput.addEventListener('input', () => {
       const hz = valueToFreq(freqInput.value);
       filter.frequency.setTargetAtTime(hz, ctx.currentTime, 0.01);
@@ -108,8 +122,10 @@ export const lpfResModule = {
     resRow.appendChild(resJackWrap);
     const resInput = resRow.querySelector('[data-param="res"]');
     const resValue = resRow.querySelector('.synth-module__value');
+    const qRange = [Q_MIN, Q_MAX];
     resInput.addEventListener('input', () => {
-      const q = Math.max(Q_MIN, Number(resInput.value));
+      const norm = paramToNorm(Number(resInput.value), qRange);
+      const q = normToParam(norm, qRange);
       filter.Q.setTargetAtTime(q, ctx.currentTime, 0.01);
       resValue.textContent = formatQ(q);
     });
@@ -122,10 +138,27 @@ export const lpfResModule = {
       element: root,
       getAudioInput() { return inputGain; },
       getAudioOutput() { return outputGain; },
+      getParamBaseNorm(paramId) {
+        if (paramId === 'frequency') return freqToNorm01(filter.frequency.value);
+        return undefined;
+      },
+      getParamDisplayValue(paramId) {
+        if (paramId === 'frequency') return filter.frequency.value;
+        return undefined;
+      },
       getModulatableParams() {
         return [
-          { id: 'frequency', name: 'Freq', param: filter.frequency, modulationScale: 2000 },
-          { id: 'q', name: 'Res', param: filter.Q, modulationScale: 10 },
+          {
+            id: 'frequency',
+            name: 'Freq',
+            param: filter.frequency,
+            range: [0, 1],
+            displayRange: [FREQ_MIN, FREQ_MAX],
+            format: (v) => formatFreq(v),
+            normToDisplayValue: (norm) => normToFreq(norm),
+            toParamValue: (norm) => normToFreq(norm),
+          },
+          { id: 'q', name: 'Res', param: filter.Q, range: qRange, displayRange: qRange, format: (v) => formatQ(v) },
         ];
       },
       destroy() {

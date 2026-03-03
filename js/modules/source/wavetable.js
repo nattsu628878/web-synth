@@ -7,6 +7,7 @@ import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-utils.js';
 
 const FRAME_COUNT = 4096;
 
@@ -80,6 +81,7 @@ export const wavetableModule = {
     name: 'Wavetable',
     kind: 'source',
     description: 'Wavetable: pick 2 waves, morph between them (PeriodicWave)',
+    previewDescription: 'Signal: 1 audio out.\nTwo waves; morph blends A/B.',
   },
 
   create(instanceId) {
@@ -209,14 +211,17 @@ export const wavetableModule = {
 
     waveASelect.addEventListener('change', () => applyWave());
     waveBSelect.addEventListener('change', () => applyWave());
+    const morphDef = PARAM_DEFS.percent;
+    const freqRange = [20, 20000];
+    const gainDef = PARAM_DEFS.gain;
     morphInput.addEventListener('input', () => {
-      const v = Number(morphInput.value) / 100;
-      morphDrive.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
-      morphValue.textContent = `${formatParamValue(morphInput.value)} %`;
+      const norm = paramToNorm(Number(morphInput.value), morphDef.displayRange);
+      morphDrive.gain.setTargetAtTime(normToParam(norm, morphDef.range), ctx.currentTime, 0.01);
+      morphValue.textContent = morphDef.format(normToParam(norm, morphDef.displayRange));
       applyWave();
     });
-    morphDrive.gain.value = Number(morphInput.value) / 100;
-    morphValue.textContent = `${formatParamValue(morphInput.value)} %`;
+    morphDrive.gain.value = normToParam(paramToNorm(Number(morphInput.value), morphDef.displayRange), morphDef.range);
+    morphValue.textContent = morphDef.format(Number(morphInput.value));
 
     let morphRAF = 0;
     function morphTick() {
@@ -227,12 +232,14 @@ export const wavetableModule = {
     morphRAF = requestAnimationFrame(morphTick);
 
     freqInput.addEventListener('input', () => {
-      osc.frequency.setTargetAtTime(Number(freqInput.value), ctx.currentTime, 0.01);
-      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+      const norm = paramToNorm(Number(freqInput.value), freqRange);
+      osc.frequency.setTargetAtTime(normToParam(norm, freqRange), ctx.currentTime, 0.01);
+      freqValue.textContent = ParamFormat.freq(Number(freqInput.value));
     });
     gainInput.addEventListener('input', () => {
-      gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
-      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      gainNode.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
+      gainValue.textContent = gainDef.format(normToParam(norm, gainDef.displayRange));
     });
 
     osc.frequency.value = 440;
@@ -248,9 +255,9 @@ export const wavetableModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'morph', name: 'Morph', param: morphDrive.gain },
-          { id: 'frequency', name: 'Freq', param: osc.frequency, modulationScale: 100 },
-          { id: 'gain', name: 'Gain', param: gainNode.gain },
+          { id: 'morph', name: 'Morph', param: morphDrive.gain, ...PARAM_DEFS.percent },
+          { id: 'frequency', name: 'Freq', param: osc.frequency, range: freqRange, displayRange: freqRange, format: ParamFormat.freq },
+          { id: 'gain', name: 'Gain', param: gainNode.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {

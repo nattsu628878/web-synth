@@ -7,6 +7,7 @@ import { formatParamValue } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS } from '../../param-utils.js';
 
 /** @type {import('../base.js').ModuleFactory} */
 export const noiseModule = {
@@ -15,6 +16,7 @@ export const noiseModule = {
     name: 'Noise',
     kind: 'source',
     description: 'White noise source',
+    previewDescription: 'Signal: 1 audio out.\nWhite noise; percussion or modulator.',
   },
 
   create(instanceId) {
@@ -71,6 +73,7 @@ export const noiseModule = {
     const gainInput = document.createElement('input');
     gainInput.type = 'range';
     gainInput.className = 'synth-module__slider';
+    gainInput.setAttribute('data-param', 'gain');
     gainInput.min = '0';
     gainInput.max = '100';
     gainInput.step = '1';
@@ -89,9 +92,11 @@ export const noiseModule = {
 
     root.appendChild(body);
 
+    const gainDef = PARAM_DEFS.gain;
     gainInput.addEventListener('input', () => {
-      gainNode.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
-      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      gainNode.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
+      gainValue.textContent = gainDef.format(Number(gainInput.value));
     });
 
     return {
@@ -104,7 +109,7 @@ export const noiseModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'gain', name: 'Gain', param: gainNode.gain },
+          { id: 'gain', name: 'Gain', param: gainNode.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {

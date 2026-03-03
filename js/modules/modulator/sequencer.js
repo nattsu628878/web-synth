@@ -1,7 +1,7 @@
 /**
  * sequencer.js
- * Web Synth - ステップシーケンサ（Seq-8 / Seq-16 / Seq-64）
- * Seq-64 は 4 段 × 16 ステップ。データは stepPitch / stepGate 配列のみ。Sync In でマスター BPM に同期可能。
+ * Web Synth - ステップシーケンサ（Seq-8 / Seq-16 / Seq-32）
+ * いずれも 1 段あたり 8 ステップ。データは stepPitch / stepGate 配列のみ。Sync In でマスター BPM に同期可能。
  */
 
 import { formatParamValue } from '../base.js';
@@ -22,9 +22,10 @@ const SCROLL_SENSITIVITY = 0.004;
  * @param {() => number[]} getStepPitch
  * @param {() => boolean[]} getStepGate
  * @param {() => number} getCurrentStep
- * @param {number} [rows=1] - 段数（Seq-64 のとき 4）
+ * @param {number} [rows=1] - 段数（8 ステップ/段。Seq-16 は 2 段、Seq-32 は 4 段）
+ * @param {() => number} [getDepthPercent] - Depth 0–100。省略時は 100
  */
-function attachSequencerViz(container, stepCount, getStepPitch, getStepGate, getCurrentStep, rows = 1) {
+function attachSequencerViz(container, stepCount, getStepPitch, getCurrentStep, rows = 1, getDepthPercent) {
   const wrapper = document.createElement('div');
   wrapper.className = 'synth-module__waveform-viz synth-module__waveform-viz--sequencer';
   const canvas = document.createElement('canvas');
@@ -58,7 +59,6 @@ function attachSequencerViz(container, stepCount, getStepPitch, getStepGate, get
     cctx.clearRect(0, 0, w, h);
 
     const pitch = getStepPitch();
-    const gate = getStepGate();
     const current = getCurrentStep();
     const padding = 2;
     const innerW = w - padding * 2;
@@ -67,8 +67,16 @@ function attachSequencerViz(container, stepCount, getStepPitch, getStepGate, get
     const rowH = innerH / rows;
     const barColor = 'rgba(98, 136, 120, 0.5)';
     const barColorCurrent = 'rgba(98, 136, 120, 0.9)';
-    const gateColor = 'rgba(98, 136, 120, 0.8)';
     const currentBg = 'rgba(114, 23, 33, 0.15)';
+
+    const depthPct = Math.max(0, Math.min(100, Number(getDepthPercent?.() ?? 100)));
+    const depthLineY = padding + innerH * (1 - depthPct / 100);
+    cctx.strokeStyle = '#628878';
+    cctx.lineWidth = 1.5;
+    cctx.beginPath();
+    cctx.moveTo(padding, depthLineY);
+    cctx.lineTo(w - padding, depthLineY);
+    cctx.stroke();
 
     for (let i = 0; i < stepCount; i++) {
       const row = Math.floor(i / cols);
@@ -84,24 +92,19 @@ function attachSequencerViz(container, stepCount, getStepPitch, getStepGate, get
       const barH = Math.max(2, rowH * pct);
       cctx.fillStyle = isCurrent ? barColorCurrent : barColor;
       cctx.fillRect(x + 1, y + rowH - barH, colW - 2, barH);
-      if (gate[i]) {
-        cctx.fillStyle = gateColor;
-        cctx.beginPath();
-        cctx.arc(x + colW / 2, y + rowH - 4, Math.min(3, rowH / 4), 0, Math.PI * 2);
-        cctx.fill();
-      }
     }
     rafId = requestAnimationFrame(draw);
   }
   rafId = requestAnimationFrame(draw);
-  return () => {
-    if (rafId) cancelAnimationFrame(rafId);
+  return {
+    destroy: () => { if (rafId) cancelAnimationFrame(rafId); },
+    wrapper,
   };
 }
 
 /**
- * @param {number} stepCount - 8 / 16 / 64
- * @param {number} [rows=1] - 段数（Seq-64 のとき 4）
+ * @param {number} stepCount - 8 / 16 / 32
+ * @param {number} [rows=1] - 段数（8 ステップ/段。Seq-16 は 2 段、Seq-32 は 4 段）
  * @returns {import('../base.js').ModuleFactory}
  */
 export function createSequencerModule(stepCount, rows = 1) {
@@ -115,6 +118,7 @@ export function createSequencerModule(stepCount, rows = 1) {
       name,
       kind: 'modulator',
       description: `${stepCount}-step sequencer (Pitch + Gate). Sync In from Master.${rows > 1 ? ` ${rows} rows × ${stepsPerRow} steps.` : ''}`,
+      previewDescription: `Signal: Pitch + Gate out, Sync In.\n${stepCount}-step sequencer; BPM or sync from Master.`,
     },
 
     create(instanceId) {
@@ -176,23 +180,66 @@ export function createSequencerModule(stepCount, rows = 1) {
       body.className = 'synth-module__body synth-module__body--controls';
 
       const bpmRow = document.createElement('div');
-      bpmRow.className = 'synth-module__row';
+      bpmRow.className = 'synth-module__row synth-module__row--bpm';
       bpmRow.innerHTML = `<label class="synth-module__label">BPM</label><input type="range" class="synth-module__slider" data-param="bpm" min="${MIN_BPM}" max="${MAX_BPM}" step="1" value="${DEFAULT_BPM}"><span class="synth-module__value">${DEFAULT_BPM} BPM</span>`;
       body.appendChild(bpmRow);
 
-      const stepsWrap = document.createElement('div');
-      stepsWrap.className = `synth-module__steps synth-module__steps--rows-${rows}`;
+      const depthRow = document.createElement('div');
+      depthRow.className = 'synth-module__row';
+      depthRow.innerHTML = '<label class="synth-module__label">Depth</label><input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" step="1" value="100"><span class="synth-module__value">100 %</span>';
+      body.appendChild(depthRow);
 
+      const depthInput = body.querySelector('[data-param="depth"]');
+      const depthValue = depthRow.querySelector('.synth-module__value');
+
+      const vizResult = attachSequencerViz(
+        body,
+        stepCount,
+        () => stepPitch,
+        () => currentStep,
+        rows,
+        () => (depthInput ? Number(depthInput.value) : 100)
+      );
+      const vizWrapper = vizResult.wrapper;
+
+      const pitchOverlay = document.createElement('div');
+      pitchOverlay.className = 'synth-module__sequencer-viz-overlay';
+      pitchOverlay.setAttribute('aria-hidden', 'true');
       for (let rowIndex = 0; rowIndex < rows; rowIndex++) {
         const pitchRow = document.createElement('div');
-        pitchRow.className = 'synth-module__row synth-module__row--steps synth-module__row--pitch';
+        pitchRow.className = 'synth-module__sequencer-viz-overlay-row';
         for (let c = 0; c < stepsPerRow; c++) {
           const i = rowIndex * stepsPerRow + c;
-          const wrap = document.createElement('div');
-          wrap.className = 'synth-module__step synth-module__step--pitch';
           const barWrap = document.createElement('div');
-          barWrap.className = 'synth-module__step-pitch-cell';
+          barWrap.className = 'synth-module__step-pitch-cell synth-module__sequencer-viz-overlay-cell';
           barWrap.dataset.step = String(i);
+          if (stepGate[i]) barWrap.classList.add('synth-module__step-pitch-cell--gate-on');
+          barWrap.addEventListener('pointerdown', (e) => {
+            if (e.button !== 0) return;
+            const stepIndex = i;
+            stepGate[stepIndex] = !stepGate[stepIndex];
+            barWrap.classList.toggle('synth-module__step-pitch-cell--gate-on', stepGate[stepIndex]);
+            const paintValue = stepGate[stepIndex];
+            const onDocMove = (moveEv) => {
+              const under = document.elementFromPoint(moveEv.clientX, moveEv.clientY);
+              const cell = under?.closest('.synth-module__step-pitch-cell.synth-module__sequencer-viz-overlay-cell');
+              if (!cell || !root.contains(cell)) return;
+              const idx = Number(cell.dataset.step ?? 0);
+              if (stepGate[idx] === paintValue) return;
+              stepGate[idx] = paintValue;
+              cell.classList.toggle('synth-module__step-pitch-cell--gate-on', paintValue);
+            };
+            const onDocUp = () => {
+              document.removeEventListener('pointermove', onDocMove);
+              document.removeEventListener('pointerup', onDocUp);
+              document.removeEventListener('pointercancel', onDocUp);
+            };
+            document.addEventListener('pointermove', onDocMove);
+            document.addEventListener('pointerup', onDocUp);
+            document.addEventListener('pointercancel', onDocUp);
+          });
+          barWrap.setAttribute('role', 'button');
+          barWrap.setAttribute('aria-label', `Step ${i + 1} gate`);
           const sliderWrap = document.createElement('div');
           sliderWrap.className = 'synth-module__step-slider-wrap';
           const rotationWrap = document.createElement('div');
@@ -214,44 +261,11 @@ export function createSequencerModule(stepCount, rows = 1) {
           valueDisplay.setAttribute('aria-label', `Step ${i + 1} pitch`);
           valueDisplay.setAttribute('tabindex', '0');
           barWrap.appendChild(valueDisplay);
-          wrap.appendChild(barWrap);
-          pitchRow.appendChild(wrap);
+          pitchRow.appendChild(barWrap);
         }
-        stepsWrap.appendChild(pitchRow);
-
-        const gateRow = document.createElement('div');
-        gateRow.className = 'synth-module__row synth-module__row--steps synth-module__row--gate';
-        for (let c = 0; c < stepsPerRow; c++) {
-          const i = rowIndex * stepsPerRow + c;
-          const wrap = document.createElement('div');
-          wrap.className = 'synth-module__step synth-module__step--gate';
-          const btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'synth-module__step-gate';
-          btn.dataset.step = String(i);
-          btn.dataset.param = 'gate';
-          btn.setAttribute('aria-label', `Step ${i + 1} gate`);
-          if (stepGate[i]) btn.classList.add('synth-module__step-gate--on');
-          btn.addEventListener('click', () => {
-            const stepIndex = Number(btn.dataset.step ?? 0);
-            stepGate[stepIndex] = !stepGate[stepIndex];
-            btn.classList.toggle('synth-module__step-gate--on', stepGate[stepIndex]);
-          });
-          wrap.appendChild(btn);
-          gateRow.appendChild(wrap);
-        }
-        stepsWrap.appendChild(gateRow);
+        pitchOverlay.appendChild(pitchRow);
       }
-      body.appendChild(stepsWrap);
-
-      const stopViz = attachSequencerViz(
-        body,
-        stepCount,
-        () => stepPitch,
-        () => stepGate,
-        () => currentStep,
-        rows
-      );
+      vizWrapper.appendChild(pitchOverlay);
 
       root.appendChild(body);
 
@@ -288,7 +302,7 @@ export function createSequencerModule(stepCount, rows = 1) {
         const num = stepPitch[currentStep];
         pitchOut.offset.setTargetAtTime(num / 100, ctx.currentTime, 0.01);
         const gateOn = stepGate[currentStep];
-        if (gateOn && !lastGateOn) {
+        if (gateOn) {
           gateListeners.forEach((cb) => cb());
         }
         lastGateOn = gateOn;
@@ -310,7 +324,11 @@ export function createSequencerModule(stepCount, rows = 1) {
         startLoop();
       });
 
-      stepsWrap.querySelectorAll('input[data-param="pitch"]').forEach((input) => {
+      depthInput?.addEventListener('input', () => {
+        if (depthValue) depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
+      });
+
+      root.querySelectorAll('input[data-param="pitch"]').forEach((input) => {
         const stepIndex = Number(input.dataset.step ?? 0);
         input.addEventListener('input', () => {
           setPitchFromUI(stepIndex, input.value);
@@ -318,10 +336,8 @@ export function createSequencerModule(stepCount, rows = 1) {
       });
 
       body.addEventListener('wheel', (e) => {
-        const valueEl = e.target.closest('.synth-module__step-pitch-value');
-        if (!valueEl) return;
-        const cell = valueEl.parentElement;
-        if (!cell?.classList.contains('synth-module__step-pitch-cell')) return;
+        const cell = e.target.closest('.synth-module__step-pitch-cell');
+        if (!cell || !cell.classList.contains('synth-module__sequencer-viz-overlay-cell')) return;
         const input = cell.querySelector('input[type="range"]');
         if (!input) return;
         const stepIndex = Number(input.dataset.step ?? 0);
@@ -340,10 +356,19 @@ export function createSequencerModule(stepCount, rows = 1) {
       return {
         element: root,
         advanceStep,
-        setSyncConnected(connected, masterStepArg) {
+        setSyncConnected(connected, masterStepArg, masterBpm) {
           syncConnected = !!connected;
-          if (bpmValue) bpmValue.textContent = syncConnected ? 'Sync' : `${formatParamValue(bpmInput?.value ?? DEFAULT_BPM)} BPM`;
+          bpmRow.classList.toggle('synth-module__row--bpm-sync', syncConnected);
+          if (bpmInput) bpmInput.disabled = syncConnected;
           if (syncConnected) {
+            if (bpmValue && typeof masterBpm === 'number') {
+              const v = Math.max(MIN_BPM, Math.min(MAX_BPM, masterBpm));
+              bpmValue.textContent = `${Math.floor(v)} BPM`;
+              if (bpmInput) {
+                bpmInput.value = String(v);
+                bpmInput.dispatchEvent(new Event('input', { bubbles: true }));
+              }
+            } else if (bpmValue) bpmValue.textContent = 'Sync BPM';
             if (stepIntervalId) {
               clearInterval(stepIntervalId);
               stepIntervalId = null;
@@ -355,12 +380,40 @@ export function createSequencerModule(stepCount, rows = 1) {
               if (lastGateOn) gateListeners.forEach((cb) => cb());
             }
           } else {
+            if (bpmValue) bpmValue.textContent = `${formatParamValue(bpmInput?.value ?? DEFAULT_BPM)} BPM`;
             startLoop();
+          }
+        },
+        setMasterBpm(bpm) {
+          if (!syncConnected || !bpmValue) return;
+          const v = Math.max(MIN_BPM, Math.min(MAX_BPM, Number(bpm)));
+          bpmValue.textContent = `${Math.floor(v)} BPM`;
+          if (bpmInput) {
+            bpmInput.value = String(v);
+            bpmInput.dispatchEvent(new Event('input', { bubbles: true }));
           }
         },
         getModulationOutput(outputId) {
           if (outputId === 'gate') return null;
           return pitchOut;
+        },
+        getModulationValue(outputId) {
+          if (outputId === 'gate') return undefined;
+          const depthPct = Math.max(0, Math.min(100, Number(depthInput?.value) ?? 100));
+          return ((stepPitch[currentStep] ?? 0) / 100) * (depthPct / 100);
+        },
+        getModulationRange(outputId) {
+          if (outputId === 'gate') return undefined;
+          const maxP = stepCount ? Math.max(...stepPitch.slice(0, stepCount), 0) : 0;
+          const depthPct = Math.max(0, Math.min(100, Number(depthInput?.value) ?? 100));
+          return { min: 0, max: (maxP / 100) * (depthPct / 100) };
+        },
+        /** バー表示用: 緑の先端からのオフセット％。depth と pitch 最大値まで右に伸びる */
+        getModulationRangePercent(outputId) {
+          if (outputId === 'gate') return undefined;
+          const maxP = stepCount ? Math.max(...stepPitch.slice(0, stepCount), 0) : 0;
+          const depthPct = Math.max(0, Math.min(100, Number(depthInput?.value) ?? 100));
+          return { leftOffset: 0, rightOffset: Math.min(100, maxP * (depthPct / 100)) };
         },
         addGateListener(cb) {
           gateListeners.push(cb);
@@ -369,8 +422,18 @@ export function createSequencerModule(stepCount, rows = 1) {
           const idx = gateListeners.indexOf(cb);
           if (idx !== -1) gateListeners.splice(idx, 1);
         },
+        restoreState(state) {
+          if (!state || typeof state !== 'object') return;
+          for (let i = 0; i < stepCount; i++) {
+            if (state[`gate_${i}`] !== undefined) {
+              stepGate[i] = !!state[`gate_${i}`];
+              const cell = getPitchCell(i);
+              if (cell) cell.classList.toggle('synth-module__step-pitch-cell--gate-on', stepGate[i]);
+            }
+          }
+        },
         destroy() {
-          if (typeof stopViz === 'function') stopViz();
+          if (vizResult?.destroy) vizResult.destroy();
           if (stepIntervalId) clearInterval(stepIntervalId);
           gateListeners.length = 0;
           try {
@@ -383,6 +446,6 @@ export function createSequencerModule(stepCount, rows = 1) {
   };
 }
 
-export const sequencer8Module = createSequencerModule(8);
-export const sequencer16Module = createSequencerModule(16);
-export const sequencer64Module = createSequencerModule(64, 4);
+export const sequencer8Module = createSequencerModule(8, 1);
+export const sequencer16Module = createSequencerModule(16, 2);
+export const sequencer32Module = createSequencerModule(32, 4);

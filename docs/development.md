@@ -14,24 +14,35 @@ web-synth/
 ├── dev-server.sh       # 簡易 HTTP サーバ（任意）。
 ├── README.md
 ├── PROJECT.md
-├── memo.md
+├── PROJECT-ja.md
 └── js/
     ├── main.js         # エントリ。モジュール登録、ラック・ケーブル・オーディオ、Save/Load、テーマ、マスター、Sync。
-    ├── rack.js         # 行単位ラック、スロット追加・削除・並び替え、getRows/getSlotIndex/getSlotInstanceId。
+    ├── rack.js         # 行単位ラック、スロット追加・削除・並び替え（左右矢印）、getRows/getSlotIndex/getSlotInstanceId。
     ├── cables.js       # ケーブル描画、出力・入力ジャック、接続・切断、弛み、色（CSS 変数参照）。
-    ├── audio-core.js   # AudioContext、マスターゲイン、アナライザー。
-    ├── waveform-viz.js # 波形・エンベロープ用ビジュアル。
+    ├── audio-core.js   # AudioContext、マスターゲイン、アナライザー、LPF/HPF Worklet 読み込み。
+    ├── waveform-viz.js # モジュール用波形ビジュアル。attachWaveformViz。
+    ├── filter-response-viz.js # LPF/HPF 周波数特性キャンバス。attachFilterResponseViz。
+    ├── processors/     # AudioWorklet（1/2/4 次 LPF・HPF）。
     └── modules/
         ├── base.js     # モジュール契約（ModuleKind, ModuleMeta, create の戻り値）。
-        ├── sample-module.js
-        ├── waveform-generator.js
-        ├── fm-synth.js
-        ├── wavetable.js
-        ├── reverb.js
-        ├── lfo.js
-        ├── envelope.js
-        ├── sequencer.js  # createSequencerModule(8)/createSequencerModule(16)。
-        └── README.md     # モジュール一覧・依存関係。
+        ├── README.md
+        ├── source/     # kind: source
+        │   ├── sample-module.js
+        │   ├── waveform-generator.js
+        │   ├── fm-synth.js
+        │   ├── wavetable.js
+        │   └── noise.js
+        ├── effect/     # kind: effect
+        │   ├── reverb.js
+        │   ├── eq8.js
+        │   ├── lpf.js
+        │   ├── hpf.js
+        │   ├── lpf-res.js
+        │   └── hpf-res.js
+        └── modulator/ # kind: modulator
+            ├── lfo.js
+            ├── envelope.js
+            └── sequencer.js  # sequencer8Module, sequencer16Module, sequencer64Module。
 ```
 
 ## 3. モジュールの追加手順

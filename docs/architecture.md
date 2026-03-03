@@ -13,12 +13,12 @@ Web Synth の全体構成と主要モジュールの役割。
 
 - **行（RackRow）**: `rowIndex`, `name`, `source`（1 スロット）, `chain`（エフェクト＋モジュレータのスロット配列）, `pan`, `mute`, `solo`。
 - **スロット（RackSlot）**: `typeId`, `instanceId`, `kind`, `element`, `instance`（モジュールの戻り値）。
-- **主な API**  
-  - `addSourceRow(typeId)` — 新規行を追加し、音源を配置。  
-  - `addEffectToRow(rowIndex, typeId)` / `addModulatorToRow(rowIndex, typeId)` — チェーンに追加。  
-  - `moveSlotInChain(rowIndex, fromIndex, toIndex)` — ハンドルドラッグで並び替え。  
-  - `removeModule(rowIndex, slotInstanceId)` — モジュール削除。  
-  - `getRows()` — 全行。  
+- **主な API**
+  - `addSourceRow(typeId)` — 新規行を追加し、音源を配置。
+  - `addEffectToRow(rowIndex, typeId)` / `addModulatorToRow(rowIndex, typeId)` — チェーンに追加。
+  - 並び替えはスロットの左右矢印ボタン（`moveSlotLeft` / `moveSlotRight`）で実施。チェーン変更後に `onChainChange` で再接続。
+  - `removeModule(instanceId)` — モジュール削除（instanceId で指定）。
+  - `getRows()` — 全行。
   - `getSlotIndex(rowIndex, instanceId)` / `getSlotInstanceId(rowIndex, slotIndex)` — 保存・読み込み・マスター Sync 用（rowIndex=-1, slotIndex=-1 → 'master'）。
 
 ## 3. ケーブル（cables.js）

@@ -13,6 +13,7 @@ export const ffOscModule = {
     name: 'FF-Osc',
     kind: 'source',
     description: 'Freeform oscillator (draw waveform, play it)',
+    previewDescription: 'Signal: 1 audio out.\nDraw-your-own waveform oscillator.',
   },
 
   /**

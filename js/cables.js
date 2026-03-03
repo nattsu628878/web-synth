@@ -55,6 +55,16 @@ function getCableColorSync() {
 /** ケーブルの弛み（px）。変更可能 */
 let cableDroop = 40;
 
+/** スクロール時の再描画を RAF で1フレーム遅延（慣性スクロールとレイアウトのずれ防止） */
+let scrollRafId = 0;
+function scheduleRedrawCablesRAF() {
+  if (scrollRafId) cancelAnimationFrame(scrollRafId);
+  scrollRafId = requestAnimationFrame(() => {
+    scrollRafId = 0;
+    drawCables();
+  });
+}
+
 /**
  * ジャック要素から行・スロットIDを取得
  * @param {HTMLElement} jack
@@ -69,7 +79,8 @@ function getJackPosition(jack) {
   if (!slot || !row) return null;
   const rowIndex = parseInt(row.dataset.rowIndex ?? '-1', 10);
   const slotId = slot.dataset.instanceId ?? '';
-  if (slotId === '' || rowIndex < 0) return null;
+  if (slotId === '') return null;
+  if (rowIndex < 0 && rowIndex !== -2) return null;
   return { rowIndex, slotId };
 }
 
@@ -148,7 +159,63 @@ function getInputJackEl(rowIndex, slotId, paramId) {
 }
 
 /**
- * ケーブルを描画（垂れ下がり曲線）
+ * 要素のスクロール親（overflow: auto/scroll）を取得
+ * @param {HTMLElement} el
+ * @returns {HTMLElement|null}
+ */
+function getScrollParent(el) {
+  let p = el?.parentElement;
+  while (p && p !== document.body) {
+    const o = getComputedStyle(p).overflow;
+    const ox = getComputedStyle(p).overflowX;
+    if (o === 'auto' || o === 'scroll' || ox === 'auto' || ox === 'scroll') return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+/**
+ * モジュールごとの「入力ジャックのケーブル可視」判定の登録。
+ * 登録されている場合、スクロール外は無視しその判定のみで点線にする（例: EQ8 はタブ不一致時のみ点線）。
+ * キー: モジュールルート要素、値: (paramId: string) => boolean（true = 実線、false = 点線）
+ * @type {Map<HTMLElement, (paramId: string) => boolean>}
+ */
+const customInputJackVisibility = new Map();
+
+/**
+ * モジュールの入力ジャック用「ケーブル可視」判定を登録／解除する。
+ * 登録時は drawCables で toVisible にこの結果のみを使う（スクロール判定は行わない）。
+ * @param {HTMLElement|null} moduleRoot - モジュールルート要素（.synth-module）。null は無視
+ * @param {((paramId: string) => boolean)|null|undefined} checkFn - 判定関数。true=実線、false=点線。null/undefined で解除
+ */
+export function registerModuleInputJackVisibility(moduleRoot, checkFn) {
+  if (!moduleRoot) return;
+  if (checkFn == null) customInputJackVisibility.delete(moduleRoot);
+  else customInputJackVisibility.set(moduleRoot, checkFn);
+}
+
+/**
+ * ジャックがそのスクロール領域内で見えているか（スクロールで隠れていないか）。
+ * @param {HTMLElement|null} jack
+ * @returns {boolean}
+ */
+function isJackVisibleInViewport(jack) {
+  if (!jack) return false;
+  const scrollParent = getScrollParent(jack);
+  const container = scrollParent || rackEl;
+  if (!container) return true;
+  const jackRect = jack.getBoundingClientRect();
+  const containerRect = container.getBoundingClientRect();
+  return (
+    jackRect.left < containerRect.right &&
+    jackRect.right > containerRect.left &&
+    jackRect.top < containerRect.bottom &&
+    jackRect.bottom > containerRect.top
+  );
+}
+
+/**
+ * ケーブルを描画（垂れ下がり曲線）。接続先・接続元のどちらかがスクロールで隠れている場合は点線で描画
  */
 function drawCables() {
   if (!svgEl || !rackEl || !getRowsFn) return;
@@ -188,7 +255,16 @@ function drawCables() {
     const midY = (y1 + y2) / 2 + cableDroop;
     const path = `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
     const stroke = getCableStroke(c);
-    pathParts.push(`<path d="${path}" fill="none" stroke="${stroke}" stroke-width="3" class="synth-cable"/>`);
+    const fromVisible = isJackVisibleInViewport(fromJack);
+    const moduleRoot = toJack.closest('.synth-module');
+    const customToVisible = moduleRoot && customInputJackVisibility.get(moduleRoot);
+    const toVisible = typeof customToVisible === 'function'
+      ? customToVisible(c.toParamId)
+      : isJackVisibleInViewport(toJack);
+    const dashed = !fromVisible || !toVisible;
+    const dashAttr = dashed ? ' stroke-dasharray="6 4"' : '';
+    const dashClass = dashed ? ' synth-cable--dashed' : '';
+    pathParts.push(`<path d="${path}" fill="none" stroke="${stroke}" stroke-width="3" class="synth-cable${dashClass}"${dashAttr}/>`);
   }
 
   svgEl.innerHTML = pathParts.join('');
@@ -243,7 +319,7 @@ export function initCables(el, getRows, onConnect, onDisconnect) {
 
   const resizeObserver = new ResizeObserver(() => drawCables());
   resizeObserver.observe(el);
-  el.addEventListener('scroll', drawCables);
+  el.addEventListener('scroll', scheduleRedrawCablesRAF);
   window.addEventListener('resize', drawCables);
   drawCables();
 }
@@ -301,8 +377,8 @@ export function createOutputJack(container, outputId) {
  * @param {string} paramId - getModulatableParams の id と一致させる
  * @returns {HTMLElement}
  */
-/** Pitch 専用（Seq 出力先など）。ソースの周波数入力は modulation (#628878) */
-const PITCH_PARAM_IDS = [];
+/** シーケンサ Pitch → 周波数入力など、ピッチ用ジャックの paramId（色分け用） */
+const PITCH_PARAM_IDS = ['frequency', 'carrierFreq', 'modFreq', 'pitch'];
 
 export function createInputJack(container, paramId) {
   const jack = document.createElement('div');
@@ -426,11 +502,17 @@ export function clearAllConnections() {
 }
 
 /**
- * 指定入力への接続を解除
+ * ケーブルを再描画（即時）
  */
-export function disconnectParam(toRow, toSlotId, toParamId) {
-  removeConnectionTo(toRow, toSlotId, toParamId);
+export function redrawCables() {
   drawCables();
+}
+
+/**
+ * ケーブルを次のフレームで再描画（スクロール時に呼ぶと慣性スクロールとレイアウトのずれを防ぐ）
+ */
+export function scheduleRedrawCables() {
+  scheduleRedrawCablesRAF();
 }
 
 /**
@@ -449,13 +531,6 @@ export function removeConnectionsBySlot(rowIndex, slotId) {
     if (onDisconnectFn) onDisconnectFn(c.fromRow, c.fromSlotId, c.toRow, c.toSlotId, c.toParamId, c.fromOutputId);
     updateInputJackDraggable(c.toRow, c.toSlotId, c.toParamId);
   }
-  drawCables();
-}
-
-/**
- * ケーブルを再描画（スクロール・リサイズ時に外部から呼ぶ場合）
- */
-export function redrawCables() {
   drawCables();
 }
 

@@ -55,6 +55,7 @@ function attachAdEnvelopeViz(container, getParams) {
     const params = getParams();
     const attack = params.attack / 1000;
     const decay = params.decay / 1000;
+    const depth = Math.max(0, Math.min(1, (params.depth ?? 100) / 100));
     const totalSec = Math.max(attack + decay, 0.01);
 
     const padding = 2;
@@ -64,12 +65,14 @@ function attachAdEnvelopeViz(container, getParams) {
     const toX = (t) => padding + (t / totalSec) * graphW;
     const toY = (v) => baseY - v * graphH;
 
+    const shape = (t) => adValueAt(t, attack, decay) * depth;
+
     cctx.strokeStyle = 'rgba(98, 136, 120, 0.35)';
     cctx.lineWidth = 1.5;
     cctx.beginPath();
-    cctx.moveTo(toX(0), toY(0));
-    cctx.lineTo(toX(attack), toY(1));
-    cctx.lineTo(toX(attack + decay), toY(0));
+    cctx.moveTo(toX(0), toY(shape(0)));
+    cctx.lineTo(toX(attack), toY(shape(attack)));
+    cctx.lineTo(toX(attack + decay), toY(shape(attack + decay)));
     cctx.stroke();
 
     const now = performance.now() / 1000;
@@ -77,17 +80,16 @@ function attachAdEnvelopeViz(container, getParams) {
     const playing = elapsed >= 0 && elapsed < totalSec + 0.05;
 
     if (playing && elapsed <= totalSec) {
-      const currentVal = adValueAt(elapsed, attack, decay);
+      const currentVal = shape(elapsed);
       const curX = toX(elapsed);
       const curY = toY(currentVal);
 
       cctx.strokeStyle = '#628878';
       cctx.lineWidth = 2;
       cctx.beginPath();
-      cctx.moveTo(toX(0), toY(0));
+      cctx.moveTo(toX(0), toY(shape(0)));
       for (let t = 0; t <= elapsed; t += 0.002) {
-        const v = adValueAt(t, attack, decay);
-        cctx.lineTo(toX(t), toY(v));
+        cctx.lineTo(toX(t), toY(shape(t)));
       }
       cctx.lineTo(curX, curY);
       cctx.stroke();
@@ -124,6 +126,7 @@ export const adEnvelopeModule = {
     name: 'AD Env',
     kind: 'modulator',
     description: 'Attack–Decay envelope (pluck, percussive)',
+    previewDescription: 'Signal: trigger in, CV out.\nA/D envelope; no sustain, good for plucks.',
   },
 
   create(instanceId) {
@@ -162,7 +165,7 @@ export const adEnvelopeModule = {
     body.innerHTML = `
       <div class="synth-module__row"><label class="synth-module__label">A</label><input type="range" class="synth-module__slider" data-param="attack" min="1" max="500" value="10"><span class="synth-module__value">10 ms</span></div>
       <div class="synth-module__row"><label class="synth-module__label">D</label><input type="range" class="synth-module__slider" data-param="decay" min="1" max="2000" value="200"><span class="synth-module__value">200 ms</span></div>
-      <div class="synth-module__row"><label class="synth-module__label">Depth</label><input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="50"><span class="synth-module__value">50 %</span></div>
+      <div class="synth-module__row"><label class="synth-module__label">Depth</label><input type="range" class="synth-module__slider" data-param="depth" min="0" max="100" value="100"><span class="synth-module__value">100 %</span></div>
       <div class="synth-module__row"><button type="button" class="synth-module__trigger" data-param="trigger">Trigger</button></div>
     `;
     const triggerRow = body.querySelector('.synth-module__row:last-child');
@@ -182,10 +185,12 @@ export const adEnvelopeModule = {
     const triggerBtn = body.querySelector('[data-param="trigger"]');
 
     const depthGain = ctx.createGain();
-    depthGain.gain.value = 0.5;
+    depthGain.gain.value = 1;
     outNode.connect(depthGain);
 
+    let lastTriggerTime = 0;
     function fireTrigger() {
+      lastTriggerTime = performance.now() / 1000;
       const t = ctx.currentTime;
       const a = Number(attackInput.value) / 1000;
       const d = Number(decayInput.value) / 1000;
@@ -210,6 +215,7 @@ export const adEnvelopeModule = {
       return {
         attack: Number(attackInput.value),
         decay: Number(decayInput.value),
+        depth: (() => { const v = Number(depthInput.value); return Number.isNaN(v) ? 100 : v; })(),
       };
     }
 
@@ -222,13 +228,33 @@ export const adEnvelopeModule = {
 
     attackValue.textContent = `${formatParamValue(attackInput.value)} ms`;
     decayValue.textContent = `${formatParamValue(decayInput.value)} ms`;
-    depthValue.textContent = '50 %';
+    depthValue.textContent = '100 %';
+
+    function getModulationValue() {
+      const elapsed = performance.now() / 1000 - lastTriggerTime;
+      const attack = Number(attackInput.value) / 1000;
+      const decay = Number(decayInput.value) / 1000;
+      const depth = Number(depthInput.value) / 100;
+      return adValueAt(elapsed, attack, decay) * depth;
+    }
+    function getModulationRange() {
+      const depth = Number(depthInput.value) / 100;
+      return { min: 0, max: depth };
+    }
+    /** バー表示用: 緑の先端からのオフセット％ */
+    function getModulationRangePercent() {
+      const depth = Number(depthInput.value) || 0;
+      return { leftOffset: 0, rightOffset: Math.min(100, depth) };
+    }
 
     return {
       element: root,
       getModulationOutput() {
         return depthGain;
       },
+      getModulationValue,
+      getModulationRange,
+      getModulationRangePercent,
       trigger() {
         fireTrigger();
         viz.trigger();

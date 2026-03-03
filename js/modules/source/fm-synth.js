@@ -7,6 +7,7 @@ import { formatParamValue, formatParamValueFreq } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
+import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-utils.js';
 
 /** @type {import('../base.js').ModuleFactory} */
 export const fmSynthModule = {
@@ -15,6 +16,7 @@ export const fmSynthModule = {
     name: 'FM',
     kind: 'source',
     description: 'FM synth (frequency modulation)',
+    previewDescription: 'Signal: 1 audio out.\nFM synth; carrier, modulator, index.',
   },
 
   create(instanceId) {
@@ -118,24 +120,29 @@ export const fmSynthModule = {
     const gainInput = body.querySelector('[data-param="gain"]');
     const gainValue = gainRow.querySelector('.synth-module__value');
 
+    const carrierRange = [20, 20000];
+    const modFreqRange = [1, 20000];
+    const indexRange = [0, 500];
+    const gainDef = PARAM_DEFS.gain;
     carrierInput.addEventListener('input', () => {
-      const v = Number(carrierInput.value);
-      carrierFreqConst.offset.setTargetAtTime(v, ctx.currentTime, 0.01);
-      carrierValue.textContent = `${formatParamValueFreq(carrierInput.value)} Hz`;
+      const norm = paramToNorm(Number(carrierInput.value), carrierRange);
+      carrierFreqConst.offset.setTargetAtTime(normToParam(norm, carrierRange), ctx.currentTime, 0.01);
+      carrierValue.textContent = ParamFormat.freq(Number(carrierInput.value));
     });
     modFreqInput.addEventListener('input', () => {
-      const v = Number(modFreqInput.value);
-      modulator.frequency.setTargetAtTime(v, ctx.currentTime, 0.01);
-      modFreqValue.textContent = `${formatParamValueFreq(modFreqInput.value)} Hz`;
+      const norm = paramToNorm(Number(modFreqInput.value), modFreqRange);
+      modulator.frequency.setTargetAtTime(normToParam(norm, modFreqRange), ctx.currentTime, 0.01);
+      modFreqValue.textContent = ParamFormat.freq(Number(modFreqInput.value));
     });
     indexInput.addEventListener('input', () => {
-      const v = Number(indexInput.value);
-      modGain.gain.setTargetAtTime(v, ctx.currentTime, 0.01);
-      indexValue.textContent = `${formatParamValue(indexInput.value)} —`;
+      const norm = paramToNorm(Number(indexInput.value), indexRange);
+      modGain.gain.setTargetAtTime(normToParam(norm, indexRange), ctx.currentTime, 0.01);
+      indexValue.textContent = `${Math.round(Number(indexInput.value))} —`;
     });
     gainInput.addEventListener('input', () => {
-      outputGain.gain.setTargetAtTime(Number(gainInput.value) / 100, ctx.currentTime, 0.01);
-      gainValue.textContent = `${formatParamValue(gainInput.value)} %`;
+      const norm = paramToNorm(Number(gainInput.value), gainDef.displayRange);
+      outputGain.gain.setTargetAtTime(normToParam(norm, gainDef.range), ctx.currentTime, 0.01);
+      gainValue.textContent = gainDef.format(Number(gainInput.value));
     });
 
     carrierValue.textContent = `${formatParamValueFreq(carrierInput.value)} Hz`;
@@ -153,10 +160,10 @@ export const fmSynthModule = {
       },
       getModulatableParams() {
         return [
-          { id: 'carrierFreq', name: 'Carrier', param: carrierFreqConst.offset, modulationScale: 100 },
-          { id: 'modFreq', name: 'Mod', param: modulator.frequency, modulationScale: 100 },
-          { id: 'index', name: 'Index', param: modGain.gain, modulationScale: 50 },
-          { id: 'gain', name: 'Gain', param: outputGain.gain },
+          { id: 'carrierFreq', name: 'Carrier', param: carrierFreqConst.offset, range: carrierRange, displayRange: carrierRange, format: ParamFormat.freq },
+          { id: 'modFreq', name: 'Mod', param: modulator.frequency, range: modFreqRange, displayRange: modFreqRange, format: ParamFormat.freq },
+          { id: 'index', name: 'Index', param: modGain.gain, range: indexRange, displayRange: indexRange, format: (v) => `${Math.round(v)} —` },
+          { id: 'gain', name: 'Gain', param: outputGain.gain, ...PARAM_DEFS.gain },
         ];
       },
       destroy() {
