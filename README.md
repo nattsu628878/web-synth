@@ -1,36 +1,64 @@
-# Web Synth
+**[日本語版 README](README-ja.md)**
 
-ブラウザ上の Ableton Live 風モジュラーシンセ。音源・エフェクト・モジュレータを行単位で配置し、ケーブルで変調・同期を接続して演奏・保存できます。
+# Web Synth - Project Overview
 
-## 起動
+Browser-based modular synth (Ableton Live style). Place sources, effects, and modulators; connect with cables; save/load projects.
 
-1. プロジェクトルートで `index.html` をブラウザで開く（`file://` またはローカルサーバ経由）。
-2. 任意: `./dev-server.sh` で簡易サーバを起動し、表示された URL を開く。
+---
 
-## 主な機能
+## Overview
 
-- **ラック**: 行ごとに音源（1 つ）＋チェーン（エフェクト・モジュレータ）。スロットの左右矢印で並び替え。
-- **音源**: Sample、Osc、FM、Wavetable、Noise、PWM、Pluck、FF-Osc、FF-Wavetable。周波数は最大 20kHz まで。
-- **エフェクト**: Reverb、EQ-8、LPF、HPF、LPF Res、HPF Res。Wet / Freq / Res などケーブル可。
-- **モジュレータ**: LFO、Random LFO、Envelope（ADSR）、AD Env、Seq-8 / Seq-16 / Seq-64。シーケンサはマスター Sync で位相同期。
-- **ケーブル**: 出力ジャックから入力ジャックへドラッグで接続。接続先の入力ジャックを掴んでドロップで切断。接続種別（Modulation / Pitch / Gate / Sync）ごとに色分け。
-- **マスター**: BPM・Vol はバー＋数値（ホイールで変更）。Sync Out の右に同期ランプ。メーター、波形・スペクトル・スペクトログラム・ゴニオメータ。
-- **保存・読み込み**: ヘッダーの Save / Open で JSON に保存・復元。
-- **テーマ**: ダーク / ライト切り替え（localStorage 保存）。
+| Item | Description |
+|------|-------------|
+| Entry | `index.html` -> `js/main.js` (ES modules) |
+| UI | Header (Save / Open, Cable sag, theme), picker (SOURCES / EFFECTS / MODULATORS), rack, master panel (BPM, Sync Out, Vol, Level, Wave / Spectrum / Spectrogram / Goniometer) |
 
-## ドキュメント
+---
 
-- **[PROJECT.md](PROJECT.md)** / **[PROJECT-ja.md](PROJECT-ja.md)** — プロジェクト概要（アーキテクチャ、モジュール一覧、ケーブル、シーケンサ、保存など）。
-- **docs/** — 詳細ドキュメント。
-  - [architecture.md](docs/architecture.md) — アーキテクチャ
-  - [modules.md](docs/modules.md) — モジュール一覧・インターフェース
-  - [cables.md](docs/cables.md) — ケーブル・接続種別・色・切断
-  - [sequencer.md](docs/sequencer.md) — シーケンサ・同期
-  - [development.md](docs/development.md) — 開発・起動・ファイル構成
-  - [future-ideas.md](docs/future-ideas.md) — 今後の候補
+## Layout
 
-## 技術
+- **Rack**: Rows = Source (one per row) + Effect chain. Row has name, pan (knob), M/S, mute, solo. Rows scroll; header stays fixed.
+- **Modulators panel**: Left of master. LFO, Envelope, Seq-8/16/32, etc. Cables connect from here to source/effect params and row pan.
+- **Master**: BPM, Sync Out jack, Vol, L/R meter, output viz (Wave / Spectrum / Spectrogram / Goniometer).
 
-- フロントのみ（ES モジュール）。ビルド不要。
-- Web Audio API（AudioContext、OscillatorNode、GainNode、ConvolverNode、ConstantSourceNode など）。
-- 保存形式は JSON（行・チェーン・接続・Pan / Mute / Solo）。
+---
+
+## Module kinds
+
+- **source** - One per row (Osc, FM, Wavetable, Noise, PWM, Pluck, FF-Osc, FF-Wavetable, Sample).
+- **effect** - In chain: Reverb, Delay, EQ-8, LPF, HPF, LPF Res, HPF Res.
+- **modulator** - In Modulators panel: LFO, Random LFO, Envelope, AD Env, Seq-8, Seq-16, Seq-32. Outputs (Pitch, Gate, modulation) connect to params via cables.
+
+---
+
+## Cables
+
+- Drag from output jack to input jack to connect. Drag from input jack to disconnect.
+- Master Sync Out to Sequencer Sync In for BPM-driven steps.
+- Modulation cables: green bar = base value, purple bar = modulated range (when connected).
+
+---
+
+## Save / Load
+
+- **Save**: Downloads JSON (rows, source/effect/modulator types and all parameters, connections, pan, mute, solo).
+- **Open**: Rebuilds rack and modulators from JSON, restores parameters and connections.
+
+---
+
+## Main files
+
+| File | Role |
+|------|------|
+| js/main.js | Entry, module registration, rack/cable/audio wiring, save/load, master, module preview |
+| js/rack.js | Rows, slots, addSourceRow / addEffectToRow / addModulator, param bars |
+| js/cables.js | SVG cables, jacks, connect/disconnect, redraw on scroll |
+| js/audio-core.js | AudioContext, master gain, analysers |
+| js/module-preview.js | Picker hover preview (clone module, scale to fit) |
+| js/modules/ | source / effect / modulator modules (base.js contract) |
+
+---
+
+## Docs
+
+- docs/architecture.md - Rack, cables, audio flow, save/load.
