@@ -1,49 +1,40 @@
-# アーキテクチャ
+# アーキテクチャ（確認用）
 
-Web Synth の全体構成と主要モジュールの役割。
+## 1. エントリ
 
-## 1. エントリと初期化
-
-- **index.html**  
-  - ヘッダー（タイトル、Cable sag、Save / Open、テーマ）、ピッカー（Sources / Effects / Modulators）、ラック領域（`#rackContainer`）、マスターパネル（BPM、Sync Out、Vol、Level、Wave / Spectrum / Spectrogram / Goniometer）。
-- **js/main.js**  
-  - モジュール登録、ラックコンテナの設定、ケーブル初期化（`synth-rack-area` にレイヤー）、マスター BPM / Sync tick、Save / Load、テーマ、メーター・波形・スペクトル・ゴニオのループ。
+- **index.html** — ヘッダー（Cable sag, Save/Open, テーマ）、ピッカー（SOURCES / EFFECTS / MODULATORS）、ラック、マスター（BPM, Sync Out, Vol, Level, Wave/Spectrum/Spectrogram/Goniometer）。
+- **js/main.js** — モジュール登録、ラック・ケーブル・オーディオ配線、Save/Load、マスター BPM/Sync、モジュールプレビュー、変調ループ。
 
 ## 2. ラック（rack.js）
 
-- **行（RackRow）**: `rowIndex`, `name`, `source`（1 スロット）, `chain`（エフェクト＋モジュレータのスロット配列）, `pan`, `mute`, `solo`。
-- **スロット（RackSlot）**: `typeId`, `instanceId`, `kind`, `element`, `instance`（モジュールの戻り値）。
-- **主な API**
-  - `addSourceRow(typeId)` — 新規行を追加し、音源を配置。
-  - `addEffectToRow(rowIndex, typeId)` / `addModulatorToRow(rowIndex, typeId)` — チェーンに追加。
-  - 並び替えはスロットの左右矢印ボタン（`moveSlotLeft` / `moveSlotRight`）で実施。チェーン変更後に `onChainChange` で再接続。
-  - `removeModule(instanceId)` — モジュール削除（instanceId で指定）。
-  - `getRows()` — 全行。
-  - `getSlotIndex(rowIndex, instanceId)` / `getSlotInstanceId(rowIndex, slotIndex)` — 保存・読み込み・マスター Sync 用（rowIndex=-1, slotIndex=-1 → 'master'）。
+- **行**: `rowIndex`, `name`, `source`（1スロット）, `chain`（エフェクトのみ）, `pan`, `mute`, `solo`。モジュレータは別パネル（MODULATOR_ROW）。
+- **スロット**: `typeId`, `instanceId`, `kind`, `element`, `instance`。
+- **API**: `addSourceRow`, `addEffectToRow`, `addModulator`（Modulators パネルに追加）, `getRows`, `getSlotIndex` / `getSlotInstanceId`, `removeModule`。並び替えはスロットの左右矢印。
 
 ## 3. ケーブル（cables.js）
 
-- **接続（Connection）**: `fromRow`, `fromSlotId`, `fromOutputId?`, `toRow`, `toSlotId`, `toParamId`。
-- **描画**: SVG で垂れ下がり曲線。色は接続種別（fromOutputId とマスター Sync）で決定。CSS 変数（`--cable-modulation` 等）を参照。
-- **ジャック**:  
-  - 出力: `createOutputJack(container, outputId)`。outputId に応じて `synth-jack--modulation` / `synth-jack--pitch` / `synth-jack--gate` / `synth-jack--sync`。  
-  - 入力: `createInputJack(container, paramId)`。paramId に応じて種別クラスを付与。接続がある入力だけ `draggable` にし、ドラッグして別の場所にドロップで切断。
-- **初期化**: `initCables(synthRackArea, getRows, onConnect, onDisconnect)`。ラックのスクロール時に `redrawCables()` を呼ぶ。
-- **弛み**: `setCableDroop(value)` / `getCableDroop()`。ヘッダーの Cable sag スライダーと連動。
+- 接続: 出力ジャック → 入力ジャックにドロップ。切断: 入力ジャックをドラッグしてドロップ。
+- 種別・色: Modulation / Pitch / Gate / Sync（CSS 変数 `--cable-modulation` 等）。`createOutputJack`, `createInputJack`。
+- 特殊: Master Sync Out → Seq Sync In（tick で `advanceStep`）。Gate → Envelope Trigger（`addGateListener`）。変調 → 行 Pan（`toParamId='pan'`）。
+- 弛み: `setCableDroop` / `getCableDroop`。
 
 ## 4. オーディオ（audio-core.js）
 
-- **AudioContext**: シングルトン。`ensureAudioContext()`、`resumeContext()`。
-- **マスター**: `getMasterInput()`（GainNode）。各行の tail（source → effects → gain → panner）をここに接続。
-- **アナライザー**: マスター用の AnalyserNode（波形・スペクトル・L/R ゴニオ用）。`getMasterAnalyser()` 等。
+- AudioContext シングルトン。`getMasterInput()` に各行の tail（source → effects → gain → panner）を接続。
+- アナライザー: マスター波形・スペクトル・L/R ゴニオ用。
 
 ## 5. 信号フロー
 
-- **行ごと**: `source.getAudioOutput()` → チェーン内の effect の `getAudioInput()` / `getAudioOutput()` を順に接続 → `gain`（Mute/Solo）→ `panner`（Pan）→ `getMasterInput()`。
-- **変調**: ケーブル接続時に `fromSlot.instance.getModulationOutput(fromOutputId)` を `toSlot.instance.getModulatableParams()` の該当 `param` に接続。周波数などは `modulationScale` で GainNode を挟む。
-- **同期**: マスター BPM の `setInterval` が tick を発火。Sync Out → Sequencer Sync In の接続があるシーケンサの `advanceStep()` を呼ぶ。
+- 行: `source.getAudioOutput()` → チェーン effect の getAudioInput/getAudioOutput → gain（Mute/Solo）→ panner → `getMasterInput()`。
+- 変調: ケーブル接続で `getModulationOutput` → 対象の `getModulatableParams` の param に接続。0–1 正規化は param-utils。
+- 同期: マスター BPM の tick → Sync 接続済み Seq の `advanceStep()`。
 
 ## 6. 保存・読み込み（main.js）
 
-- **保存**: `getRows()` と `getConnections()` から JSON を組み立て。接続は `fromSlotIndex` / `toSlotIndex` で保存（マスターは fromRow=-1, fromSlotIndex=-1）。
-- **読み込み**: `clearAllConnections()` → `clearRack()` の後、行・チェーンを再構築し、`addConnectionFromLoad(...)` で接続を復元。Sync 購読者リストもクリアしてから接続復元で再登録。
+- 保存: `getRows()` + `getConnections()` から JSON。行・モジュレータの全パラメータは `getModuleState(slot)`（collectParamsFromElement + getSerializableState）。
+- 読み込み: clearRack → 行・チェーン・モジュレータ再構築 → `restoreModuleState` → `addConnectionFromLoad` で接続復元。
+
+## 7. 開発メモ
+
+- **起動**: `index.html` を開く、または `./dev-server.sh`。
+- **モジュール追加**: `js/modules/{kind}/xxx.js` で `create(instanceId)` を export → `main.js` で `registerModule(xxxModule)`。契約は [modules.md](modules.md)。

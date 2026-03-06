@@ -1,57 +1,55 @@
-# モジュール一覧とインターフェース
+# モジュール契約と一覧（確認用）
 
-## 1. モジュール契約（base.js）
+## 役割
+
+各ファイルはモジュールファクトリを export し、main.js で `registerModule()` により rack.js に登録する。base.js は契約・型定義のみで登録対象ではない。
+
+## フォルダ構成（kind 別）
+
+モジュールは **kind**（source / effect / modulator）ごとに `js/modules/` のサブフォルダに配置する。
+
+| フォルダ | kind | 説明 |
+|----------|------|------|
+| **source/** | source | 音源。1 行に 1 つ。行を新規追加。 |
+| **effect/** | effect | エフェクト。チェーン内。音声入出力。 |
+| **modulator/** | modulator | モジュレータ。Modulators パネルに追加。変調出力をパラメータにケーブル接続。 |
+
+base.js は modules 直下に置き、各モジュールから `../base.js` で参照する。
+
+## 契約（base.js）
 
 - **ModuleKind**: `'source' | 'effect' | 'modulator'`
-- **ModuleMeta**: `id`, `name`, `kind`, `description?`
-- **create(instanceId)** が返すオブジェクト:
-  - **element** (HTMLElement) — 必須
-  - **getAudioInput?** () → AudioNode | null
-  - **getAudioOutput?** () → AudioNode | null
-  - **getModulationOutput?** (outputId?) → AudioNode | null
-  - **getModulatableParams?** () → Array<{ id, name, param: AudioParam, modulationScale? }>
-  - **destroy?** () → void
-  - **trigger?** () — エンベロープ用
-  - **addGateListener?** (cb) / **removeGateListener?** (cb) — シーケンサ Gate 用
-  - **advanceStep?** () / **setSyncConnected?** (bool) — シーケンサ Sync 用
+- **create(instanceId)** の戻り値: `element`, `getAudioInput?`, `getAudioOutput?`, `getModulationOutput?`, `getModulatableParams?`, `destroy?`。Seq は `advanceStep`, `setSyncConnected`, `addGateListener` / `removeGateListener`。Envelope は `trigger`。
 
-## 2. 登録モジュール
+## 登録モジュール一覧
 
-| id | name | kind | 主な出力/入力 |
-|----|------|------|----------------|
-| sample | Sample | source | （プレースホルダ） |
-| waveform | Osc | source | 出力。Freq, Gain 入力。 |
-| fm | FM | source | 出力。carrierFreq, modFreq, index, gain 入力。 |
-| wavetable | Wavetable | source | 出力。frequency, gain, morph 入力。 |
-| noise | Noise | source | 出力。gain 入力。 |
-| reverb | Reverb | effect | 音声入出力。wet 入力。 |
-| eq8 | EQ-8 | effect | 8 バンド EQ。各バンドの Gain/Freq/Q。 |
-| lpf | LPF | effect | 1/2/4 次 CR ローパス。Freq, Order。AudioWorklet。 |
-| hpf | HPF | effect | 1/2/4 次 CR ハイパス。Freq, Order。AudioWorklet。 |
-| lpf-res | LPF Res | effect | Biquad ローパス＋レゾナンス。Freq, Res。 |
-| hpf-res | HPF Res | effect | Biquad ハイパス＋レゾナンス。Freq, Res。 |
-| lfo | LFO | modulator | 出力ジャック（modulation）。 |
-| envelope | Envelope | modulator | 出力ジャック。trigger 入力（Gate 接続可）。 |
-| sequencer-8 | Seq-8 | modulator | 8 ステップ（1 段）。Pitch, Gate 出力。Sync In 入力。 |
-| sequencer-16 | Seq-16 | modulator | 16 ステップ（2 段×8）。同上。 |
-| sequencer-32 | Seq-32 | modulator | 32 ステップ（4 段×8）。同上。 |
+| id | name | kind | ファイル | 備考 |
+|----|------|------|----------|------|
+| sample | Sample | source | source/sample-module.js | プレースホルダ（発音なし） |
+| waveform | Osc | source | source/waveform-generator.js | Sine/Square/Saw/Tri。Freq, Gain。 |
+| fm | FM | source | source/fm-synth.js | Carrier, Mod, Index, Gain。 |
+| wavetable | Wavetable | source | source/wavetable.js | Wave A/B, Morph。Freq, Gain。 |
+| noise | Noise | source | source/noise.js | ホワイトノイズ。Gain。 |
+| pwm | PWM | source | source/pwm.js | AudioWorklet。Freq, Pulse %, Gain。 |
+| pluck | Pluck | source | source/pluck.js | Karplus–Strong。Freq, Decay, Gain。 |
+| ff-osc | FF-Osc | source | source/ff-osc.js | |
+| ff-wavetable | FF-Wavetable | source | source/ff-wavetable.js | |
+| reverb | Reverb | effect | effect/reverb.js | Wet。 |
+| delay | Delay | effect | effect/delay.js | |
+| eq8 | EQ-8 | effect | effect/eq8.js | 8 バンド。Gain/Freq/Q。 |
+| lpf | LPF | effect | effect/lpf.js | 1/2/4 次 CR。Freq, Order。 |
+| hpf | HPF | effect | effect/hpf.js | 1/2/4 次 CR。Freq, Order。 |
+| lpf-res | LPF Res | effect | effect/lpf-res.js | Biquad＋レゾナンス。 |
+| hpf-res | HPF Res | effect | effect/hpf-res.js | Biquad＋レゾナンス。 |
+| lfo | LFO | modulator | modulator/lfo.js | Wave, Rate, Depth。 |
+| random-lfo | Random LFO | modulator | modulator/random-lfo.js | |
+| envelope | Envelope | modulator | modulator/envelope.js | ADSR, Trigger。 |
+| ad-envelope | AD Env | modulator | modulator/ad-envelope.js | Attack–Decay。 |
+| sequencer-8 | Seq-8 | modulator | modulator/sequencer.js | 8 ステップ（1 段）。Pitch, Gate, Sync In。 |
+| sequencer-16 | Seq-16 | modulator | modulator/sequencer.js | 16 ステップ（2 段×8）。 |
+| sequencer-32 | Seq-32 | modulator | modulator/sequencer.js | 32 ステップ（4 段×8）。 |
 
-## 3. モジュールごとの補足
+## 依存
 
-- **Sample**: 現状は発音なしのプレースホルダ。
-- **Osc / FM / Wavetable / PWM / Pluck / FF-Osc / FF-Wavetable**: 上窓に波形ビジュアル（音源）。スライダーは rack.js の `replaceSlidersWithBars` でバー表示に置き換え。
-- **Reverb**: ConvolverNode。インパルスは簡易のため短いバッファ。
-- **EQ-8**: 8 バンド EQ。BiquadFilterNode。各バンドの Gain / Freq / Q をケーブル可能。
-- **LPF / HPF**: 1/2/4 次 CR。AudioWorklet。filter-response-viz で周波数特性を表示。
-- **LPF Res / HPF Res**: BiquadFilterNode。レゾナンス付き。
-- **LFO / Random LFO**: 出力を Freq 等に接続時は modulationScale でスケール。
-- **Envelope / AD Env**: ADSR または AD。Trigger ボタンまたはシーケンサ Gate → trigger 入力で発火。
-- **Sequencer**: stepPitch / stepGate を唯一の真実の源。上窓でステップ可視化。Sync In 接続時はマスターのグローバルステップに位相を合わせて進行。Seq-64 は 4 段×16 ステップ。
-
-## 4. モジュールの追加方法
-
-1. `js/modules/{kind}/`（kind は source / effect / modulator）に新規 JS を追加。`create(instanceId)` で `{ element, ... }` を返すファクトリを export。
-2. `main.js` で `import { xxxModule } from './modules/{kind}/xxx.js';` し `registerModule(xxxModule)`。
-3. ピッカーは kind に応じて Sources / Effects / Modulators のいずれかに表示される。
-
-詳細は [development.md](development.md) を参照。
+- **main.js** が各モジュールを `./modules/source/xxx.js` 等で import し `registerModule()` で登録。
+- 各モジュールは **base.js**（`../base.js`）、**audio-core.js**、**cables.js**、**waveform-viz.js**、**filter-response-viz.js**、**param-utils.js** を必要に応じて import。

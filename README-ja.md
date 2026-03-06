@@ -57,6 +57,8 @@
 
 ---
 
-## ドキュメント
+## ドキュメント（確認用）
 
-- **docs/architecture.md** — ラック、ケーブル、オーディオフロー、保存・読み込み。
+- **docs/architecture.md** — アーキテクチャ・ラック・ケーブル・保存・開発メモ。
+- **docs/modules.md** — モジュール契約と一覧。
+- **docs/processors.md** — AudioWorklet プロセッサ（LPF, HPF, PWM, Pluck）。

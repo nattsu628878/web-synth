@@ -59,6 +59,8 @@ Browser-based modular synth (Ableton Live style). Place sources, effects, and mo
 
 ---
 
-## Docs
+## Docs (reference only)
 
-- docs/architecture.md - Rack, cables, audio flow, save/load.
+- docs/architecture.md - Architecture, rack, cables, save/load, dev notes.
+- docs/modules.md - Module contract and list.
+- docs/processors.md - AudioWorklet processors (LPF, HPF, PWM, Pluck).
