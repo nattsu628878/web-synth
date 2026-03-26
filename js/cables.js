@@ -175,6 +175,28 @@ function getScrollParent(el) {
 }
 
 /**
+ * ジャックが「見えているか」の判定に使うスクロールコンテナ。
+ * ラック・Modulators・マスターを明示的に分岐し、隠れた時に点線になるよう統一する。
+ * @param {HTMLElement|null} jack
+ * @returns {HTMLElement|null}  null = 常に表示（マスター等）、要素 = その要素の表示範囲内かどうかで判定
+ */
+function getVisibilityContainer(jack) {
+  if (!jack) return null;
+  const modPanel = jack.closest('.synth-modulators-panel');
+  if (modPanel) {
+    const row = modPanel.querySelector('.synth-modulators-panel__row');
+    return row || getScrollParent(jack);
+  }
+  const rack = jack.closest('.synth-rack');
+  if (rack) {
+    const scroll = rack.querySelector('.synth-rack__scroll');
+    return scroll || getScrollParent(jack);
+  }
+  if (jack.closest('.synth-master-panel')) return null;
+  return getScrollParent(jack);
+}
+
+/**
  * モジュールごとの「入力ジャックのケーブル可視」判定の登録。
  * 登録されている場合、スクロール外は無視しその判定のみで点線にする（例: EQ8 はタブ不一致時のみ点線）。
  * キー: モジュールルート要素、値: (paramId: string) => boolean（true = 実線、false = 点線）
@@ -195,14 +217,14 @@ export function registerModuleInputJackVisibility(moduleRoot, checkFn) {
 }
 
 /**
- * ジャックがそのスクロール領域内で見えているか（スクロールで隠れていないか）。
+ * ジャックがそのスクロール領域内で見えているか（何かで隠れていないか）。
+ * ラック・Modulators は各スクロールコンテナの表示範囲で判定。マスターは常に true。
  * @param {HTMLElement|null} jack
  * @returns {boolean}
  */
 function isJackVisibleInViewport(jack) {
   if (!jack) return false;
-  const scrollParent = getScrollParent(jack);
-  const container = scrollParent || rackEl;
+  const container = getVisibilityContainer(jack);
   if (!container) return true;
   const jackRect = jack.getBoundingClientRect();
   const containerRect = container.getBoundingClientRect();

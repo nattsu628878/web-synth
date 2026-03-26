@@ -6,6 +6,12 @@ Browser-based modular synth (Ableton Live style). Place sources, effects, and mo
 
 ---
 
+## Screenshot
+
+![Web Synth screenshot](screen-shot.png)
+
+---
+
 ## Overview
 
 | Item | Description |
