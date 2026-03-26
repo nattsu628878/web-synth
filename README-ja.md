@@ -1,6 +1,6 @@
 # Web Synth — プロジェクト概要
 
-ブラウザ上で動作するモジュラーシンセ（Ableton Live 風）。**音源**・**エフェクト**・**モジュレータ**を配置し、ケーブルで接続。プロジェクトの保存・読み込みに対応。
+ブラウザ上で動作するモジュラーシンセ。**音源**・**エフェクト**・**モジュレータ**を配置し、ケーブルで接続。プロジェクトの保存・読み込みに対応。
 
 ---
 
@@ -9,6 +9,15 @@
 ![Web Synth の画面](screen-shot.png)
 
 ---
+
+## 技術スタック
+- HTML + CSS
+- Vanilla JavaScript（ES modules）
+- Web Audio API（`AudioContext`、`AudioNode`、`AnalyserNode`）
+- AudioWorklet（LPF/HPF、PWM、Pluck 用のカスタム DSP）
+- Canvas（波形 + フィルタ応答/スペクトラム可視化）
+- SVG（ケーブル描画）
+- JSON save/load（プロジェクト状態のエクスポート/インポート）
 
 ## 概要
 

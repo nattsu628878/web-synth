@@ -2,7 +2,7 @@
 
 # Web Synth - Project Overview
 
-Browser-based modular synth (Ableton Live style). Place sources, effects, and modulators; connect with cables; save/load projects.
+Browser-based modular synth. Place sources, effects, and modulators; connect with cables; save/load projects.
 
 ---
 
@@ -11,6 +11,15 @@ Browser-based modular synth (Ableton Live style). Place sources, effects, and mo
 ![Web Synth screenshot](screen-shot.png)
 
 ---
+
+## Technologies
+- HTML + CSS
+- Vanilla JavaScript (ES modules)
+- Web Audio API (`AudioContext`, `AudioNode`, `AnalyserNode`)
+- AudioWorklet (custom DSP for LPF/HPF, PWM, Pluck)
+- Canvas (waveform + filter response/spectrum visualization)
+- SVG (cable rendering)
+- JSON save/load (project state export/import)
 
 ## Overview
 
