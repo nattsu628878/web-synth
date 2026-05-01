@@ -63,7 +63,11 @@
 
 | ファイル | 役割 |
 |----------|------|
-| **js/main.js** | エントリ、モジュール登録、ラック・ケーブル・オーディオ配線、保存・読み込み、マスター、モジュールプレビュー |
+| **js/main.js** | エントリ（各モジュール結線）、ラック・ケーブル・オーディオ配線、マスター表示、ピッカー、保存・読み込みの起動 |
+| **js/module-registry.js** | 全モジュールの import と registerAllModules |
+| **js/connection-runtime.js** | 変調・Pan・Gate/Trigger・マスターSync のオーディオ／表示ループ結線 |
+| **js/master-sync.js** | マスター BPM、Sync tick、シーケンサ購読 |
+| **js/project-io.js** | プロジェクト JSON の保存・読み込み、状態収集・復元 |
 | **js/rack.js** | 行・スロット、addSourceRow / addEffectToRow / addModulator、パラメータバー |
 | **js/cables.js** | SVG ケーブル、ジャック、接続・切断、スクロール時の再描画 |
 | **js/audio-core.js** | AudioContext、マスターゲイン、アナライザー |
@@ -74,6 +78,6 @@
 
 ## ドキュメント（確認用）
 
-- **docs/architecture.md** — アーキテクチャ・ラック・ケーブル・保存・開発メモ。
+- **docs/architecture.md** — アーキテクチャ（main / module-registry / connection-runtime / master-sync / project-io）・ラック・ケーブル・保存・開発メモ。
 - **docs/modules.md** — モジュール契約と一覧。
 - **docs/processors.md** — AudioWorklet プロセッサ（LPF, HPF, PWM, Pluck）。

@@ -65,7 +65,11 @@ Browser-based modular synth. Place sources, effects, and modulators; connect wit
 
 | File | Role |
 |------|------|
-| js/main.js | Entry, module registration, rack/cable/audio wiring, save/load, master, module preview |
+| js/main.js | Entry (wires subsystems), rack/cable/audio routing, master viz, pickers, invokes save/load |
+| js/module-registry.js | Imports all module factories; registerAllModules |
+| js/connection-runtime.js | Cable-driven modulation, pan, gate/trigger, sync → AudioNode wiring |
+| js/master-sync.js | Master BPM & sync tick interval, sequencer subscribers |
+| js/project-io.js | Project JSON save/load, module state serialize/restore |
 | js/rack.js | Rows, slots, addSourceRow / addEffectToRow / addModulator, param bars |
 | js/cables.js | SVG cables, jacks, connect/disconnect, redraw on scroll |
 | js/audio-core.js | AudioContext, master gain, analysers |
@@ -76,6 +80,6 @@ Browser-based modular synth. Place sources, effects, and modulators; connect wit
 
 ## Docs (reference only)
 
-- docs/architecture.md - Architecture, rack, cables, save/load, dev notes.
+- docs/architecture.md - Architecture (main, module-registry, connection-runtime, master-sync, project-io), rack, cables, save/load, dev notes.
 - docs/modules.md - Module contract and list.
 - docs/processors.md - AudioWorklet processors (LPF, HPF, PWM, Pluck).
