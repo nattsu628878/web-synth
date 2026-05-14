@@ -4,7 +4,7 @@
  * いずれも 1 段あたり 8 ステップ。データは stepPitch / stepGate 配列のみ。Sync In でマスター BPM に同期可能。
  */
 
-import { formatParamValue } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { createOutputJack, createInputJack } from '../../cables.js';
 
@@ -138,43 +138,23 @@ export function createSequencerModule(stepCount, rows = 1) {
       /** 唯一の真実の源: ステップごとのゲート */
       const stepGate = Array.from({ length: stepCount }, (_, i) => i === 0);
 
-      const root = document.createElement('div');
-      root.className = `synth-module synth-module--sequencer synth-module--sequencer-${stepCount} synth-module--modulator`;
-      root.dataset.moduleId = instanceId;
-      root.setAttribute('role', 'group');
-      root.setAttribute('aria-label', name);
-
-      const header = document.createElement('div');
-      header.className = 'synth-module__header';
-      const title = document.createElement('span');
-      title.className = 'synth-module__title';
-      title.textContent = name;
-      header.appendChild(title);
-      const headerJacks = document.createElement('div');
-      headerJacks.className = 'synth-module__header-jacks';
-      const pitchJackWrap = document.createElement('span');
-      pitchJackWrap.className = 'synth-module__jack-wrap';
-      pitchJackWrap.title = 'Pitch (connect to Freq)';
-      createOutputJack(pitchJackWrap, 'pitch');
-      headerJacks.appendChild(pitchJackWrap);
-      const gateJackWrap = document.createElement('span');
-      gateJackWrap.className = 'synth-module__jack-wrap';
-      createOutputJack(gateJackWrap, 'gate');
-      headerJacks.appendChild(gateJackWrap);
-      const syncInWrap = document.createElement('span');
-      syncInWrap.className = 'synth-module__jack-wrap';
-      syncInWrap.title = 'Sync In (from Master BPM)';
-      createInputJack(syncInWrap, 'syncIn');
-      headerJacks.appendChild(syncInWrap);
-      header.appendChild(headerJacks);
-      const removeBtn = document.createElement('button');
-      removeBtn.type = 'button';
-      removeBtn.className = 'synth-module__remove';
-      removeBtn.title = 'Remove';
-      removeBtn.textContent = '×';
-      removeBtn.setAttribute('aria-label', 'Remove module');
-      header.appendChild(removeBtn);
-      root.appendChild(header);
+      const root = createModuleRoot(instanceId, name, 'synth-module--sequencer', `synth-module--sequencer-${stepCount}`, 'synth-module--modulator');
+      root.appendChild(createModuleHeader(name, (jacks) => {
+        const pitchJackWrap = document.createElement('span');
+        pitchJackWrap.className = 'synth-module__jack-wrap';
+        pitchJackWrap.title = 'Pitch (connect to Freq)';
+        createOutputJack(pitchJackWrap, 'pitch');
+        jacks.appendChild(pitchJackWrap);
+        const gateJackWrap = document.createElement('span');
+        gateJackWrap.className = 'synth-module__jack-wrap';
+        createOutputJack(gateJackWrap, 'gate');
+        jacks.appendChild(gateJackWrap);
+        const syncInWrap = document.createElement('span');
+        syncInWrap.className = 'synth-module__jack-wrap';
+        syncInWrap.title = 'Sync In (from Master BPM)';
+        createInputJack(syncInWrap, 'syncIn');
+        jacks.appendChild(syncInWrap);
+      }));
 
       const body = document.createElement('div');
       body.className = 'synth-module__body synth-module__body--controls';

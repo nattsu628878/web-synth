@@ -46,13 +46,46 @@ export function formatParamValue(v) {
 }
 
 /**
- * 周波数表示用: 小数点以下切り捨て（Hz 表示用）
- * @param {string|number} v
- * @returns {string}
+ * モジュールのルート div を生成して返す。
+ * @param {string|null} instanceId - モジュールインスタンス ID（プレビュー時は null）
+ * @param {string} ariaLabel - aria-label テキスト
+ * @param {...string} classes - synth-module に追加するクラス（例: 'synth-module--effect'）
+ * @returns {HTMLDivElement}
  */
-export function formatParamValueFreq(v) {
-  return String(Math.floor(Number(v)));
+export function createModuleRoot(instanceId, ariaLabel, ...classes) {
+  const root = document.createElement('div');
+  root.className = ['synth-module', ...classes].join(' ');
+  if (instanceId) root.dataset.moduleId = instanceId;
+  root.setAttribute('role', 'group');
+  root.setAttribute('aria-label', ariaLabel);
+  return root;
 }
 
-export const ModuleMeta = {};
-export const ModuleFactory = {};
+/**
+ * モジュールのヘッダー div（タイトル＋オプションジャック＋削除ボタン）を生成して返す。
+ * @param {string} name - タイトルテキスト
+ * @param {((jacks: HTMLDivElement) => void) | null} [buildJacks] - ヘッダージャックを追加するコールバック（省略可）
+ * @returns {HTMLDivElement}
+ */
+export function createModuleHeader(name, buildJacks = null) {
+  const header = document.createElement('div');
+  header.className = 'synth-module__header';
+  const titleEl = document.createElement('span');
+  titleEl.className = 'synth-module__title';
+  titleEl.textContent = name;
+  header.appendChild(titleEl);
+  if (buildJacks) {
+    const headerJacks = document.createElement('div');
+    headerJacks.className = 'synth-module__header-jacks';
+    buildJacks(headerJacks);
+    header.appendChild(headerJacks);
+  }
+  const removeBtn = document.createElement('button');
+  removeBtn.type = 'button';
+  removeBtn.className = 'synth-module__remove';
+  removeBtn.title = 'Remove';
+  removeBtn.textContent = '×';
+  removeBtn.setAttribute('aria-label', 'Remove module');
+  header.appendChild(removeBtn);
+  return header;
+}

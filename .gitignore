@@ -1,0 +1,16 @@
+# 依存パッケージ
+node_modules/
+
+# テストカバレッジ
+coverage/
+
+# macOS
+.DS_Store
+
+# エディタ
+.vscode/
+.idea/
+
+# ローカル環境変数
+.env
+.env.local

@@ -3,7 +3,7 @@
  * Web Synth - 純粋な波形ジェネレータ（sine / square / sawtooth / triangle）
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -33,26 +33,8 @@ export const waveformGeneratorModule = {
     gainNode.gain.value = 0.3;
     osc.connect(gainNode);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--waveform synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Oscillator');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = waveformGeneratorModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Oscillator', 'synth-module--waveform', 'synth-module--source');
+    root.appendChild(createModuleHeader(waveformGeneratorModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -130,7 +112,7 @@ export const waveformGeneratorModule = {
     root.appendChild(body);
 
     function updateFreqLabel() {
-      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+      freqValue.textContent = `${formatParamValue(freqInput.value)} Hz`;
     }
     function updateGainLabel() {
       gainValue.textContent = `${formatParamValue(gainInput.value)} %`;

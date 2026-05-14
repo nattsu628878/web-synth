@@ -344,10 +344,10 @@ document.querySelectorAll('.synth-master-graph-block__settings').forEach((panel)
 });
 
 /** 初期表示の同期 */
-document.querySelectorAll('[data-opt-value="level"]').forEach((el) => { el.textContent = '100%'; });
-document.querySelectorAll('[data-opt-value="smoothing"]').forEach((el) => { el.textContent = '60%'; });
-document.querySelectorAll('[data-opt-value="waveLineWidth"]').forEach((el) => { el.textContent = '1px'; });
-document.querySelectorAll('[data-opt-value="spectrogramDecay"]').forEach((el) => { el.textContent = '0%'; });
+syncGraphOptDisplay('level', masterGraphLevel);
+syncGraphOptDisplay('smoothing', masterGraphSmoothing);
+syncGraphOptDisplay('waveLineWidth', masterWaveLineWidth);
+syncGraphOptDisplay('spectrogramDecay', masterSpectrogramDecay);
 
 /** スペクトログラム用オフスクリーンバッファ（スクロール用） */
 let spectrogramBuffer = null;
@@ -402,7 +402,6 @@ if (masterVolumeSlider && masterVolumeValue) {
 }
 
 const masterPanel = document.querySelector('.synth-master-panel');
-const SCROLL_SENSITIVITY_MASTER = 0.004;
 if (masterPanel) {
   masterPanel.addEventListener('wheel', (e) => {
     const valueEl = e.target.closest('.synth-master-sync__value--editable, .synth-master-volume__value--editable');
@@ -413,7 +412,7 @@ if (masterPanel) {
       const max = MASTER_BPM_MAX;
       const range = max - min;
       let current = parseFloat(masterBpmSlider.value) || min;
-      const delta = -e.deltaY * range * SCROLL_SENSITIVITY_MASTER;
+      const delta = -e.deltaY * range * SCROLL_SENSITIVITY;
       const next = Math.max(min, Math.min(max, current + delta));
       if (next === current) return;
       masterBpmSlider.value = String(next);
@@ -423,7 +422,7 @@ if (masterPanel) {
       const max = 100;
       const range = max - min;
       let current = parseFloat(masterVolumeSlider.value) || min;
-      const delta = -e.deltaY * range * SCROLL_SENSITIVITY_MASTER;
+      const delta = -e.deltaY * range * SCROLL_SENSITIVITY;
       const next = Math.max(min, Math.min(max, current + delta));
       if (next === current) return;
       masterVolumeSlider.value = String(next);

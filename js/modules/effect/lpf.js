@@ -4,6 +4,7 @@
  * Order 1: -6 dB/oct, Order 2: -12 dB/oct, Order 4: -24 dB/oct
  */
 
+import { createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachFilterResponseViz } from '../../filter-response-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -37,22 +38,8 @@ function normToFreq(norm) {
 
 /** プレビュー用：音声ノードなしで実モジュールと同じ見た目の DOM を生成 */
 function buildLpfDomOnly(title, freqValue, freqLabel) {
-  const root = document.createElement('div');
-  root.className = 'synth-module synth-module--effect';
-  root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', title);
-  const header = document.createElement('div');
-  header.className = 'synth-module__header';
-  const titleEl = document.createElement('span');
-  titleEl.className = 'synth-module__title';
-  titleEl.textContent = title;
-  header.appendChild(titleEl);
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'synth-module__remove';
-  removeBtn.textContent = '×';
-  header.appendChild(removeBtn);
-  root.appendChild(header);
+  const root = createModuleRoot(null, title, 'synth-module--effect');
+  root.appendChild(createModuleHeader(title));
   const body = document.createElement('div');
   body.className = 'synth-module__body synth-module__body--controls';
   const freqRow = document.createElement('div');
@@ -144,26 +131,8 @@ export const lpfModule = {
     }
     route();
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--effect';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'LPF');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = lpfModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'LPF', 'synth-module--effect');
+    root.appendChild(createModuleHeader(lpfModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

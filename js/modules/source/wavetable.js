@@ -3,7 +3,7 @@
  * Web Synth - ウェーブテーブル音源（PeriodicWave ＋ 波形変形モーフィング）
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -93,26 +93,8 @@ export const wavetableModule = {
     morphDrive.gain.value = 0;
     osc.connect(gainNode);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--wavetable synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Wavetable');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = wavetableModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Wavetable', 'synth-module--wavetable', 'synth-module--source');
+    root.appendChild(createModuleHeader(wavetableModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

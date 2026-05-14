@@ -4,6 +4,7 @@
  * BiquadFilterNode lowpass。Freq とレゾナンス強度（Q）を変更可能。
  */
 
+import { createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachFilterResponseViz } from '../../filter-response-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -63,26 +64,8 @@ export const lpfResModule = {
     inputGain.connect(filter);
     filter.connect(outputGain);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--effect';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'LPF Res');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = lpfResModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'LPF Res', 'synth-module--effect');
+    root.appendChild(createModuleHeader(lpfResModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

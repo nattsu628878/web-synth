@@ -5,7 +5,7 @@
  * 窓に LFO 波形と現在位置を表示。
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { createOutputJack } from '../../cables.js';
 import { LFO_RANGE_MIN, LFO_RANGE_MAX } from '../../param-utils.js';
@@ -174,30 +174,8 @@ export const lfoModule = {
     osc.frequency.value = 2;
     osc.start(ctx.currentTime);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--modulator';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'LFO');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = lfoModule.meta.name;
-    header.appendChild(title);
-    const headerJacks = document.createElement('div');
-    headerJacks.className = 'synth-module__header-jacks';
-    createOutputJack(headerJacks);
-    header.appendChild(headerJacks);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'LFO', 'synth-module--modulator');
+    root.appendChild(createModuleHeader(lfoModule.meta.name, (jacks) => createOutputJack(jacks)));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -232,7 +210,7 @@ export const lfoModule = {
     });
     freqInput.addEventListener('input', () => {
       osc.frequency.setTargetAtTime(Number(freqInput.value), ctx.currentTime, 0.01);
-      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+      freqValue.textContent = `${formatParamValue(freqInput.value)} Hz`;
     });
     depthInput.addEventListener('input', () => {
       const depthPct = Number(depthInput.value) / 100;
@@ -240,7 +218,7 @@ export const lfoModule = {
       depthGain.gain.setTargetAtTime(amp, ctx.currentTime, 0.01);
       depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
-    freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+    freqValue.textContent = `${formatParamValue(freqInput.value)} Hz`;
     depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
 
     const viz = attachLfoViz(body, () => typeSelect.value, () => Number(freqInput.value) || 2, () => Number(depthInput.value) || 0);

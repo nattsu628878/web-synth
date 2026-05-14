@@ -4,7 +4,7 @@
  * 矩形波のデューティ比を 0〜100% で制御。アナログ風の太い音。
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -12,23 +12,8 @@ import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-u
 
 /** プレビュー用：AudioWorklet なしで同じ見た目の DOM を生成 */
 function buildPwmDomOnly(silentGainNode) {
-  const root = document.createElement('div');
-  root.className = 'synth-module synth-module--pwm synth-module--source';
-  root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', 'PWM Oscillator');
-  const header = document.createElement('div');
-  header.className = 'synth-module__header';
-  const title = document.createElement('span');
-  title.className = 'synth-module__title';
-  title.textContent = pwmModule.meta.name;
-  header.appendChild(title);
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'synth-module__remove';
-  removeBtn.title = 'Remove';
-  removeBtn.textContent = '×';
-  header.appendChild(removeBtn);
-  root.appendChild(header);
+  const root = createModuleRoot(null, 'PWM Oscillator', 'synth-module--pwm', 'synth-module--source');
+  root.appendChild(createModuleHeader(pwmModule.meta.name));
   const body = document.createElement('div');
   body.className = 'synth-module__body synth-module__body--controls';
   attachWaveformViz(body, silentGainNode);
@@ -103,26 +88,8 @@ export const pwmModule = {
     gainNode.gain.value = 0.3;
     pwmNode.connect(gainNode);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--pwm synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'PWM Oscillator');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = pwmModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'PWM Oscillator', 'synth-module--pwm', 'synth-module--source');
+    root.appendChild(createModuleHeader(pwmModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -178,7 +145,7 @@ export const pwmModule = {
     const gainValue = gainRow.querySelector('.synth-module__value');
 
     function updateFreqLabel() {
-      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+      freqValue.textContent = `${formatParamValue(freqInput.value)} Hz`;
     }
     function updatePwLabel() {
       pwValue.textContent = `${formatParamValue(pwInput.value)} %`;

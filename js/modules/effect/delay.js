@@ -4,7 +4,7 @@
  * DelayNode + フィードバックでエコー。Time / Feedback / Mix。
  */
 
-import { formatParamValue } from '../base.js';
+import { createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -51,26 +51,8 @@ export const delayModule = {
     dryGain.connect(outputGain);
     wetGain.connect(outputGain);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--effect';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Delay');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = delayModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Delay', 'synth-module--effect');
+    root.appendChild(createModuleHeader(delayModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

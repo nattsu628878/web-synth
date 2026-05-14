@@ -4,6 +4,7 @@
  * プレースホルダ：後で 2 波形描画 → モーフ再生を実装
  */
 
+import { createModuleRoot, createModuleHeader } from '../base.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 
 /** @type {import('../base.js').ModuleFactory} */
@@ -21,26 +22,8 @@ export const ffWavetableModule = {
    * @returns {{ element: HTMLElement, getAudioOutput?: function, destroy?: function }}
    */
   create(instanceId) {
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--ff-wavetable synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'FF-Wavetable (Freeform Wavetable)');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = ffWavetableModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'FF-Wavetable (Freeform Wavetable)', 'synth-module--ff-wavetable', 'synth-module--source');
+    root.appendChild(createModuleHeader(ffWavetableModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body';

@@ -5,7 +5,7 @@
  * 窓にステップ状の波形と現在位置を表示。
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { createOutputJack } from '../../cables.js';
 
@@ -145,30 +145,8 @@ export const randomLfoModule = {
     depthGain.gain.value = 0.5;
     constantSource.connect(depthGain);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--modulator';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Random LFO');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = randomLfoModule.meta.name;
-    header.appendChild(title);
-    const headerJacks = document.createElement('div');
-    headerJacks.className = 'synth-module__header-jacks';
-    createOutputJack(headerJacks);
-    header.appendChild(headerJacks);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Random LFO', 'synth-module--modulator');
+    root.appendChild(createModuleHeader(randomLfoModule.meta.name, (jacks) => createOutputJack(jacks)));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -218,7 +196,7 @@ export const randomLfoModule = {
     }
 
     rateInput.addEventListener('input', () => {
-      rateValue.textContent = `${formatParamValueFreq(rateInput.value)} Hz`;
+      rateValue.textContent = `${formatParamValue(rateInput.value)} Hz`;
       startInterval();
     });
     depthInput.addEventListener('input', () => {
@@ -228,7 +206,7 @@ export const randomLfoModule = {
       depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
     });
 
-    rateValue.textContent = `${formatParamValueFreq(rateInput.value)} Hz`;
+    rateValue.textContent = `${formatParamValue(rateInput.value)} Hz`;
     depthValue.textContent = `${formatParamValue(depthInput.value)} %`;
 
     startInterval();

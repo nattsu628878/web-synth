@@ -4,7 +4,7 @@
  * ConvolverNode で簡易リバーブ。Dry/Wet で原音と混ぜる。
  */
 
-import { formatParamValue } from '../base.js';
+import { createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -60,26 +60,8 @@ export const reverbModule = {
     dryGain.connect(outputGain);
     wetGain.connect(outputGain);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--effect';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Reverb');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = reverbModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Reverb', 'synth-module--effect');
+    root.appendChild(createModuleHeader(reverbModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

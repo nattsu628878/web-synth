@@ -4,7 +4,7 @@
  * トリガーでノイズを励起し、バッファ長でピッチ、減衰で持続を制御。ギター・キース風。
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -12,23 +12,8 @@ import { paramToNorm, normToParam, PARAM_DEFS, ParamFormat } from '../../param-u
 
 /** プレビュー用：AudioWorklet なしで同じ見た目の DOM を生成 */
 function buildPluckDomOnly(silentGainNode) {
-  const root = document.createElement('div');
-  root.className = 'synth-module synth-module--pluck synth-module--source';
-  root.setAttribute('role', 'group');
-  root.setAttribute('aria-label', 'Pluck');
-  const header = document.createElement('div');
-  header.className = 'synth-module__header';
-  const title = document.createElement('span');
-  title.className = 'synth-module__title';
-  title.textContent = pluckModule.meta.name;
-  header.appendChild(title);
-  const removeBtn = document.createElement('button');
-  removeBtn.type = 'button';
-  removeBtn.className = 'synth-module__remove';
-  removeBtn.title = 'Remove';
-  removeBtn.textContent = '×';
-  header.appendChild(removeBtn);
-  root.appendChild(header);
+  const root = createModuleRoot(null, 'Pluck', 'synth-module--pluck', 'synth-module--source');
+  root.appendChild(createModuleHeader(pluckModule.meta.name));
   const body = document.createElement('div');
   body.className = 'synth-module__body synth-module__body--controls';
   attachWaveformViz(body, silentGainNode);
@@ -111,26 +96,8 @@ export const pluckModule = {
     gainNode.gain.value = 0.3;
     pluckNode.connect(gainNode);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--pluck synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Pluck');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = pluckModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Pluck', 'synth-module--pluck', 'synth-module--source');
+    root.appendChild(createModuleHeader(pluckModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -197,7 +164,7 @@ export const pluckModule = {
     const triggerBtn = body.querySelector('[data-param="trigger"]');
 
     function updateFreqLabel() {
-      freqValue.textContent = `${formatParamValueFreq(freqInput.value)} Hz`;
+      freqValue.textContent = `${formatParamValue(freqInput.value)} Hz`;
     }
     function updateDecayLabel() {
       decayValue.textContent = `${formatParamValue(decayInput.value)} %`;

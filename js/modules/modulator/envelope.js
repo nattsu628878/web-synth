@@ -5,7 +5,7 @@
  * 波形窓に ADSR の形を表示し、トリガー時に軌跡をアニメーション。
  */
 
-import { formatParamValue } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { createOutputJack, createInputJack } from '../../cables.js';
 
@@ -145,30 +145,8 @@ export const envelopeModule = {
     outNode.offset.value = 0;
     outNode.start(ctx.currentTime);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--modulator';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'Envelope');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = envelopeModule.meta.name;
-    header.appendChild(title);
-    const headerJacks = document.createElement('div');
-    headerJacks.className = 'synth-module__header-jacks';
-    createOutputJack(headerJacks);
-    header.appendChild(headerJacks);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'Envelope', 'synth-module--modulator');
+    root.appendChild(createModuleHeader(envelopeModule.meta.name, (jacks) => createOutputJack(jacks)));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';

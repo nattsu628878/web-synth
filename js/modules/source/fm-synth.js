@@ -3,7 +3,7 @@
  * Web Synth - FM音源（キャリア + モジュレータで周波数変調）
  */
 
-import { formatParamValue, formatParamValueFreq } from '../base.js';
+import { formatParamValue, createModuleRoot, createModuleHeader } from '../base.js';
 import { ensureAudioContext } from '../../audio-core.js';
 import { attachWaveformViz } from '../../waveform-viz.js';
 import { createInputJack } from '../../cables.js';
@@ -47,26 +47,8 @@ export const fmSynthModule = {
     modulator.start(ctx.currentTime);
     carrierFreqConst.start(ctx.currentTime);
 
-    const root = document.createElement('div');
-    root.className = 'synth-module synth-module--fm synth-module--source';
-    root.dataset.moduleId = instanceId;
-    root.setAttribute('role', 'group');
-    root.setAttribute('aria-label', 'FM synth');
-
-    const header = document.createElement('div');
-    header.className = 'synth-module__header';
-    const title = document.createElement('span');
-    title.className = 'synth-module__title';
-    title.textContent = fmSynthModule.meta.name;
-    header.appendChild(title);
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'synth-module__remove';
-    removeBtn.title = 'Remove';
-    removeBtn.textContent = '×';
-    removeBtn.setAttribute('aria-label', 'Remove module');
-    header.appendChild(removeBtn);
-    root.appendChild(header);
+    const root = createModuleRoot(instanceId, 'FM synth', 'synth-module--fm', 'synth-module--source');
+    root.appendChild(createModuleHeader(fmSynthModule.meta.name));
 
     const body = document.createElement('div');
     body.className = 'synth-module__body synth-module__body--controls';
@@ -145,8 +127,8 @@ export const fmSynthModule = {
       gainValue.textContent = gainDef.format(Number(gainInput.value));
     });
 
-    carrierValue.textContent = `${formatParamValueFreq(carrierInput.value)} Hz`;
-    modFreqValue.textContent = `${formatParamValueFreq(modFreqInput.value)} Hz`;
+    carrierValue.textContent = `${formatParamValue(carrierInput.value)} Hz`;
+    modFreqValue.textContent = `${formatParamValue(modFreqInput.value)} Hz`;
     indexValue.textContent = `${formatParamValue(indexInput.value)} —`;
     gainValue.textContent = '30 %';
 
