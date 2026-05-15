@@ -109,6 +109,7 @@
         <div class="synth-master-meter">
           <div class="synth-master-meter__label-wrap">
             <span class="synth-master-meter__label">Level</span>
+            <span class="synth-master-meter__clip-led" id="masterClipLed" role="img" aria-label="Clip indicator" title="Clip — click to reset"></span>
           </div>
           <div class="synth-master-meter__container" role="group" aria-label="Output level L R">
             <div class="synth-master-meter__scale" aria-hidden="true">
@@ -139,6 +140,58 @@
             <div class="synth-master-correlation__track">
               <div class="synth-master-correlation__center" aria-hidden="true"></div>
               <div class="synth-master-correlation__fill" id="masterCorrelationFill" aria-hidden="true"></div>
+            </div>
+          </div>
+        </div>
+        <div class="synth-master-chain-tools">
+          <div class="synth-master-chain-tools__row">
+            <button type="button" class="synth-master-chain-btn synth-master-chain-btn--active" id="masterDcFilterBtn" title="DC offset filter (20 Hz highpass)">DC</button>
+            <button type="button" class="synth-master-chain-btn" id="masterMonoCheckBtn" title="Mono check: sum L+R to mono">Mono</button>
+          </div>
+          <div class="synth-master-chain-tools__row">
+            <button type="button" class="synth-master-chain-btn" id="masterLimiterBtn" title="Brick-wall limiter">Lim</button>
+            <div class="synth-master-chain-tools__bar" id="masterLimiterBar" aria-hidden="true">
+              <div class="synth-master-chain-tools__bar-fill" id="masterLimiterBarFill"></div>
+            </div>
+            <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterLimiterThreshold" min="-12" max="0" step="0.1" value="-0.3" aria-hidden="true">
+            <span class="synth-master-chain-tools__value" id="masterLimiterValue">−0.3 dB</span>
+          </div>
+          <div class="synth-master-comp" id="masterCompSection">
+            <div class="synth-master-comp__head">
+              <button type="button" class="synth-master-chain-btn" id="masterCompBtn" title="Master compressor">Comp</button>
+              <button type="button" class="synth-master-comp__expand" id="masterCompExpandBtn" aria-expanded="false" title="Settings">▾</button>
+            </div>
+            <div class="synth-master-comp__params" id="masterCompParams">
+              <div class="synth-master-comp__row">
+                <label class="synth-master-comp__label">Thr</label>
+                <div class="synth-master-chain-tools__bar" id="masterCompThreshBar"><div class="synth-master-chain-tools__bar-fill" id="masterCompThreshFill"></div></div>
+                <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterCompThreshold" min="-60" max="0" step="1" value="-24" aria-hidden="true">
+                <span class="synth-master-chain-tools__value" id="masterCompThreshValue">−24 dB</span>
+              </div>
+              <div class="synth-master-comp__row">
+                <label class="synth-master-comp__label">Ratio</label>
+                <div class="synth-master-chain-tools__bar" id="masterCompRatioBar"><div class="synth-master-chain-tools__bar-fill" id="masterCompRatioFill"></div></div>
+                <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterCompRatio" min="1" max="20" step="0.5" value="4" aria-hidden="true">
+                <span class="synth-master-chain-tools__value" id="masterCompRatioValue">4 : 1</span>
+              </div>
+              <div class="synth-master-comp__row">
+                <label class="synth-master-comp__label">Knee</label>
+                <div class="synth-master-chain-tools__bar" id="masterCompKneeBar"><div class="synth-master-chain-tools__bar-fill" id="masterCompKneeFill"></div></div>
+                <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterCompKnee" min="0" max="40" step="1" value="10" aria-hidden="true">
+                <span class="synth-master-chain-tools__value" id="masterCompKneeValue">10 dB</span>
+              </div>
+              <div class="synth-master-comp__row">
+                <label class="synth-master-comp__label">Atk</label>
+                <div class="synth-master-chain-tools__bar" id="masterCompAtkBar"><div class="synth-master-chain-tools__bar-fill" id="masterCompAtkFill"></div></div>
+                <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterCompAtk" min="0" max="1" step="0.001" value="0.01" aria-hidden="true">
+                <span class="synth-master-chain-tools__value" id="masterCompAtkValue">10 ms</span>
+              </div>
+              <div class="synth-master-comp__row">
+                <label class="synth-master-comp__label">Rel</label>
+                <div class="synth-master-chain-tools__bar" id="masterCompRelBar"><div class="synth-master-chain-tools__bar-fill" id="masterCompRelFill"></div></div>
+                <input type="range" class="synth-master-chain-tools__slider--hidden" id="masterCompRel" min="0" max="2" step="0.01" value="0.25" aria-hidden="true">
+                <span class="synth-master-chain-tools__value" id="masterCompRelValue">250 ms</span>
+              </div>
             </div>
           </div>
         </div>
@@ -212,6 +265,6 @@
   </div>
 
   <!-- キャッシュ対策: JS 変更時に ?v= の数字を増やすと確実に再読み込みされる -->
-  <script type="module" src="js/main.js?v=3"></script>
+  <script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

@@ -15,6 +15,14 @@ let masterChannelSplitter = null;
 let masterAnalyserL = null;
 /** @type {AnalyserNode|null} */
 let masterAnalyserR = null;
+/** @type {BiquadFilterNode|null} */
+let masterDcFilter = null;
+/** @type {DynamicsCompressorNode|null} */
+let masterCompressor = null;
+/** @type {DynamicsCompressorNode|null} */
+let masterLimiter = null;
+/** @type {GainNode|null} */
+let masterMonoGain = null;
 
 /**
  * AudioContext を取得する。未初期化の場合は null。
@@ -56,7 +64,36 @@ export function getMasterInput() {
   const ctx = ensureAudioContext();
   masterGain = ctx.createGain();
   masterGain.gain.value = 0.25;
-  masterGain.connect(ctx.destination);
+
+  masterDcFilter = ctx.createBiquadFilter();
+  masterDcFilter.type = 'highpass';
+  masterDcFilter.frequency.value = 20;
+  masterDcFilter.Q.value = 0.7;
+
+  masterCompressor = ctx.createDynamicsCompressor();
+  masterCompressor.threshold.value = 0;
+  masterCompressor.ratio.value = 1;
+  masterCompressor.knee.value = 40;
+  masterCompressor.attack.value = 0.25;
+  masterCompressor.release.value = 1;
+
+  masterLimiter = ctx.createDynamicsCompressor();
+  masterLimiter.threshold.value = 0;
+  masterLimiter.ratio.value = 1;
+  masterLimiter.knee.value = 0;
+  masterLimiter.attack.value = 0.001;
+  masterLimiter.release.value = 0.1;
+
+  masterMonoGain = ctx.createGain();
+  masterMonoGain.channelCount = 1;
+  masterMonoGain.channelCountMode = 'explicit';
+  masterMonoGain.channelInterpretation = 'speakers';
+
+  masterGain.connect(masterDcFilter);
+  masterDcFilter.connect(masterCompressor);
+  masterCompressor.connect(masterLimiter);
+  masterLimiter.connect(ctx.destination);
+
   masterAnalyser = ctx.createAnalyser();
   masterAnalyser.fftSize = 1024;
   masterAnalyser.smoothingTimeConstant = 0.6;
@@ -95,6 +132,36 @@ export function getMasterAnalyserL() {
  */
 export function getMasterAnalyserR() {
   return masterAnalyserR;
+}
+
+/** @returns {BiquadFilterNode|null} */
+export function getMasterDcFilter() { return masterDcFilter; }
+
+/** @returns {DynamicsCompressorNode|null} */
+export function getMasterCompressor() { return masterCompressor; }
+
+/** @returns {DynamicsCompressorNode|null} */
+export function getMasterLimiter() { return masterLimiter; }
+
+/**
+ * モノラルチェックモードの切り替え。masterLimiter の出力を 1ch GainNode 経由にすることで L+R をモノに変換する。
+ * @param {boolean} enabled
+ */
+export function setMonoCheck(enabled) {
+  if (!masterLimiter || !masterMonoGain) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  if (enabled) {
+    try { masterLimiter.disconnect(ctx.destination); } catch (_) {}
+    masterLimiter.connect(masterMonoGain);
+    masterMonoGain.connect(ctx.destination);
+  } else {
+    try {
+      masterLimiter.disconnect(masterMonoGain);
+      masterMonoGain.disconnect(ctx.destination);
+    } catch (_) {}
+    masterLimiter.connect(ctx.destination);
+  }
 }
 
 /** @type {Promise<void>|null} */

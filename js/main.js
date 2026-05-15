@@ -21,7 +21,7 @@ import {
   getRows,
 } from './rack.js';
 import { bindModulePreviewToPicker } from './module-preview.js';
-import { resumeContext, getMasterInput, getMasterAnalyser, getMasterAnalyserL, getMasterAnalyserR, ensureAudioContext } from './audio-core.js';
+import { resumeContext, getMasterInput, getMasterAnalyser, getMasterAnalyserL, getMasterAnalyserR, ensureAudioContext, getMasterDcFilter, getMasterCompressor, getMasterLimiter, setMonoCheck } from './audio-core.js';
 import { registerAllModules } from './module-registry.js';
 import { MASTER_BPM_MIN, MASTER_BPM_MAX, bindMasterSyncUI } from './master-sync.js';
 import {
@@ -401,6 +401,185 @@ if (masterVolumeSlider && masterVolumeValue) {
   updateMasterVolumeBar();
 }
 
+// ---------- マスターチェーンツール (DC / Mono / Limiter / Comp) ----------
+const masterClipLed = document.getElementById('masterClipLed');
+const masterDcFilterBtn = document.getElementById('masterDcFilterBtn');
+const masterMonoCheckBtn = document.getElementById('masterMonoCheckBtn');
+const masterLimiterBtn = document.getElementById('masterLimiterBtn');
+const masterLimiterBar = document.getElementById('masterLimiterBar');
+const masterLimiterBarFill = document.getElementById('masterLimiterBarFill');
+const masterLimiterThreshold = document.getElementById('masterLimiterThreshold');
+const masterLimiterValue = document.getElementById('masterLimiterValue');
+const masterCompBtn = document.getElementById('masterCompBtn');
+const masterCompExpandBtn = document.getElementById('masterCompExpandBtn');
+const masterCompSection = document.getElementById('masterCompSection');
+const masterCompThreshold = document.getElementById('masterCompThreshold');
+const masterCompRatio = document.getElementById('masterCompRatio');
+const masterCompKnee = document.getElementById('masterCompKnee');
+const masterCompAtk = document.getElementById('masterCompAtk');
+const masterCompRel = document.getElementById('masterCompRel');
+
+function sliderMin(s) { const v = parseFloat(s.min); return isNaN(v) ? 0 : v; }
+function sliderMax(s) { const v = parseFloat(s.max); return isNaN(v) ? 100 : v; }
+
+/** バーFillの幅をスライダー値から更新 */
+function updateChainBarFill(fill, slider) {
+  if (!fill || !slider) return;
+  const min = sliderMin(slider);
+  const max = sliderMax(slider);
+  const val = parseFloat(slider.value);
+  const pct = max === min ? 0 : Math.max(0, Math.min(100, ((val - min) / (max - min)) * 100));
+  fill.style.width = `${pct}%`;
+}
+
+/** バーをクリック/ホイールでスライダーを更新するバインド */
+function bindChainBar(bar, slider) {
+  if (!bar || !slider) return;
+  bar.addEventListener('click', (e) => {
+    const min = sliderMin(slider);
+    const max = sliderMax(slider);
+    const ratio = Math.max(0, Math.min(1, e.offsetX / bar.clientWidth));
+    slider.value = String(min + ratio * (max - min));
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  bar.style.cursor = 'pointer';
+}
+
+/** 値テキストをホイールスクロールでスライダー変更 */
+function bindChainValueWheel(valueEl, slider) {
+  if (!valueEl || !slider) return;
+  valueEl.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const min = sliderMin(slider);
+    const max = sliderMax(slider);
+    const step = parseFloat(slider.step) || 1;
+    let v = parseFloat(slider.value) + (e.deltaY > 0 ? -step : step);
+    v = Math.max(min, Math.min(max, v));
+    slider.value = String(v);
+    slider.dispatchEvent(new Event('input', { bubbles: true }));
+  }, { passive: false });
+}
+
+// DC Filter
+let dcFilterActive = true;
+if (masterDcFilterBtn) {
+  masterDcFilterBtn.addEventListener('click', () => {
+    dcFilterActive = !dcFilterActive;
+    masterDcFilterBtn.classList.toggle('synth-master-chain-btn--active', dcFilterActive);
+    const f = getMasterDcFilter();
+    if (f) f.type = dcFilterActive ? 'highpass' : 'allpass';
+  });
+}
+
+// Mono Check
+let monoCheckOn = false;
+if (masterMonoCheckBtn) {
+  masterMonoCheckBtn.addEventListener('click', () => {
+    monoCheckOn = !monoCheckOn;
+    masterMonoCheckBtn.classList.toggle('synth-master-chain-btn--active', monoCheckOn);
+    setMonoCheck(monoCheckOn);
+  });
+}
+
+// Limiter
+let limiterActive = false;
+function applyLimiterSettings() {
+  const lim = getMasterLimiter();
+  if (!lim) return;
+  if (limiterActive) {
+    const thr = parseFloat(masterLimiterThreshold?.value ?? -0.3);
+    lim.threshold.value = thr;
+    lim.ratio.value = 20;
+    lim.knee.value = 0;
+    lim.attack.value = 0.001;
+    lim.release.value = 0.05;
+  } else {
+    lim.threshold.value = 0;
+    lim.ratio.value = 1;
+  }
+}
+if (masterLimiterBtn) {
+  masterLimiterBtn.addEventListener('click', () => {
+    limiterActive = !limiterActive;
+    masterLimiterBtn.classList.toggle('synth-master-chain-btn--active', limiterActive);
+    applyLimiterSettings();
+  });
+}
+if (masterLimiterThreshold && masterLimiterBarFill) {
+  updateChainBarFill(masterLimiterBarFill, masterLimiterThreshold);
+  bindChainBar(masterLimiterBar, masterLimiterThreshold);
+  bindChainValueWheel(masterLimiterValue, masterLimiterThreshold);
+  masterLimiterThreshold.addEventListener('input', () => {
+    const v = parseFloat(masterLimiterThreshold.value);
+    masterLimiterValue.textContent = `${v.toFixed(1)} dB`;
+    updateChainBarFill(masterLimiterBarFill, masterLimiterThreshold);
+    if (limiterActive) applyLimiterSettings();
+  });
+  masterLimiterValue.textContent = `${parseFloat(masterLimiterThreshold.value).toFixed(1)} dB`;
+  updateChainBarFill(masterLimiterBarFill, masterLimiterThreshold);
+}
+
+// Compressor
+let compActive = false;
+function applyCompSettings() {
+  const comp = getMasterCompressor();
+  if (!comp) return;
+  if (compActive) {
+    comp.threshold.value = parseFloat(masterCompThreshold?.value ?? -24);
+    comp.ratio.value = parseFloat(masterCompRatio?.value ?? 4);
+    comp.knee.value = parseFloat(masterCompKnee?.value ?? 10);
+    comp.attack.value = parseFloat(masterCompAtk?.value ?? 0.01);
+    comp.release.value = parseFloat(masterCompRel?.value ?? 0.25);
+  } else {
+    comp.threshold.value = 0;
+    comp.ratio.value = 1;
+  }
+}
+if (masterCompBtn) {
+  masterCompBtn.addEventListener('click', () => {
+    compActive = !compActive;
+    masterCompBtn.classList.toggle('synth-master-chain-btn--active', compActive);
+    applyCompSettings();
+  });
+}
+if (masterCompExpandBtn && masterCompSection) {
+  masterCompExpandBtn.addEventListener('click', () => {
+    const open = !masterCompSection.classList.contains('synth-master-comp--open');
+    masterCompSection.classList.toggle('synth-master-comp--open', open);
+    masterCompExpandBtn.setAttribute('aria-expanded', String(open));
+  });
+}
+{
+  const compSliders = [
+    { slider: masterCompThreshold, fill: document.getElementById('masterCompThreshFill'), bar: document.getElementById('masterCompThreshBar'), value: document.getElementById('masterCompThreshValue'), fmt: (v) => `${v.toFixed(0)} dB` },
+    { slider: masterCompRatio, fill: document.getElementById('masterCompRatioFill'), bar: document.getElementById('masterCompRatioBar'), value: document.getElementById('masterCompRatioValue'), fmt: (v) => `${v.toFixed(1)} : 1` },
+    { slider: masterCompKnee, fill: document.getElementById('masterCompKneeFill'), bar: document.getElementById('masterCompKneeBar'), value: document.getElementById('masterCompKneeValue'), fmt: (v) => `${v.toFixed(0)} dB` },
+    { slider: masterCompAtk, fill: document.getElementById('masterCompAtkFill'), bar: document.getElementById('masterCompAtkBar'), value: document.getElementById('masterCompAtkValue'), fmt: (v) => `${Math.round(v * 1000)} ms` },
+    { slider: masterCompRel, fill: document.getElementById('masterCompRelFill'), bar: document.getElementById('masterCompRelBar'), value: document.getElementById('masterCompRelValue'), fmt: (v) => `${Math.round(v * 1000)} ms` },
+  ];
+  for (const { slider, fill, bar, value, fmt } of compSliders) {
+    if (!slider) continue;
+    updateChainBarFill(fill, slider);
+    bindChainBar(bar, slider);
+    bindChainValueWheel(value, slider);
+    if (value) value.textContent = fmt(parseFloat(slider.value));
+    slider.addEventListener('input', () => {
+      updateChainBarFill(fill, slider);
+      if (value) value.textContent = fmt(parseFloat(slider.value));
+      if (compActive) applyCompSettings();
+    });
+  }
+}
+
+// Clip LED
+if (masterClipLed) {
+  masterClipLed.addEventListener('click', () => {
+    masterClipLed.classList.remove('synth-master-meter__clip-led--on');
+    clipHoldTimer = 0;
+    clipActive = false;
+  });
+}
+
 const masterPanel = document.querySelector('.synth-master-panel');
 if (masterPanel) {
   masterPanel.addEventListener('wheel', (e) => {
@@ -435,6 +614,18 @@ let analyserDataArray = null;
 let analyserFrequencyData = null;
 let analyserLDataArray = null;
 let analyserRDataArray = null;
+
+let clipActive = false;
+let clipHoldTimer = 0;
+const CLIP_HOLD_MS = 2000;
+
+let peakHoldL = 0;
+let peakHoldR = 0;
+let peakHoldTimeL = 0;
+let peakHoldTimeR = 0;
+const PEAK_HOLD_MS = 2000;
+const PEAK_DECAY_MS = 400;
+
 function updateMeterAndWaveform() {
   const analyser = getMasterAnalyser();
   if (!analyser) {
@@ -492,14 +683,42 @@ function updateMeterAndWaveform() {
     const rmsR = Math.sqrt(sumR / analyserRDataArray.length);
     const { activeCount: activeCountL } = rmsToDbAndActive(rmsL);
     const { activeCount: activeCountR } = rmsToDbAndActive(rmsR);
+
+    // Peak hold
+    const now = performance.now();
+    if (activeCountL >= peakHoldL) { peakHoldL = activeCountL; peakHoldTimeL = now; }
+    if (activeCountR >= peakHoldR) { peakHoldR = activeCountR; peakHoldTimeR = now; }
+    if (now - peakHoldTimeL > PEAK_HOLD_MS + PEAK_DECAY_MS) peakHoldL = Math.max(0, peakHoldL - 1);
+    if (now - peakHoldTimeR > PEAK_HOLD_MS + PEAK_DECAY_MS) peakHoldR = Math.max(0, peakHoldR - 1);
+
     if (masterMeterSegmentsL) {
       const segments = masterMeterSegmentsL.querySelectorAll('.synth-master-meter__segment');
-      segments.forEach((seg, i) => seg.classList.toggle('synth-master-meter__segment--on', i < activeCountL));
+      const peakIdx = peakHoldL - 1;
+      segments.forEach((seg, i) => {
+        seg.classList.toggle('synth-master-meter__segment--on', i < activeCountL);
+        seg.classList.toggle('synth-master-meter__segment--peak', i === peakIdx && i >= activeCountL && peakIdx >= 0);
+      });
     }
     if (masterMeterSegmentsR) {
       const segments = masterMeterSegmentsR.querySelectorAll('.synth-master-meter__segment');
-      segments.forEach((seg, i) => seg.classList.toggle('synth-master-meter__segment--on', i < activeCountR));
+      const peakIdx = peakHoldR - 1;
+      segments.forEach((seg, i) => {
+        seg.classList.toggle('synth-master-meter__segment--on', i < activeCountR);
+        seg.classList.toggle('synth-master-meter__segment--peak', i === peakIdx && i >= activeCountR && peakIdx >= 0);
+      });
     }
+
+    // Clip detection
+    let clipped = false;
+    for (let i = 0; i < analyserLDataArray.length && !clipped; i++) {
+      if (analyserLDataArray[i] === 0 || analyserLDataArray[i] === 255) clipped = true;
+    }
+    for (let i = 0; i < analyserRDataArray.length && !clipped; i++) {
+      if (analyserRDataArray[i] === 0 || analyserRDataArray[i] === 255) clipped = true;
+    }
+    if (clipped) { clipActive = true; clipHoldTimer = now; }
+    else if (clipActive && now - clipHoldTimer > CLIP_HOLD_MS) clipActive = false;
+    if (masterClipLed) masterClipLed.classList.toggle('synth-master-meter__clip-led--on', clipActive);
     if (masterCorrelationFill) {
       let sumLR = 0;
       let sumL2 = 0;
